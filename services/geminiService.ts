@@ -7,12 +7,21 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 
-// FIX: Per coding guidelines and for Vite compatibility, use import.meta.env.VITE_API_KEY
-// for the API key. This is essential for a secure and successful deployment on hosting platforms.
-if (!import.meta.env.VITE_API_KEY) {
-    throw new Error("VITE_API_KEY environment variable not set");
+// Safely access the API key from environment variables.
+const API_KEY = import.meta.env?.VITE_API_KEY;
+
+let ai: GoogleGenAI | null = null;
+
+// Only initialize the SDK if the API key is present.
+if (API_KEY) {
+    try {
+        ai = new GoogleGenAI({ apiKey: API_KEY });
+    } catch (error) {
+        console.error("Failed to initialize GoogleGenAI:", error);
+    }
+} else {
+    console.warn("VITE_API_KEY is not defined. Image generation will be disabled.");
 }
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
 
 // --- Custom Error Types ---
@@ -86,6 +95,11 @@ function processGeminiResponse(response: GenerateContentResponse): string {
  * @returns The GenerateContentResponse from the API.
  */
 async function callGeminiWithRetry(imagePart: object, textPart: object): Promise<GenerateContentResponse> {
+    // The primary check for the API key being configured.
+    if (!ai) {
+        throw new GeminiError("API Key is not configured. Please add VITE_API_KEY to your environment variables.", GeminiErrorType.UNKNOWN);
+    }
+    
     const maxRetries = 3;
     const initialDelay = 1000;
 

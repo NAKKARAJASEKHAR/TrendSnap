@@ -144,6 +144,31 @@ const CreatePage: React.FC<CreatePageProps> = ({ initialPrompt = '' }) => {
             document.body.removeChild(link);
         }
     };
+    
+    const handleShare = async () => {
+        const imageUrl = generatedResult.url;
+        if (generatedResult.status !== 'done' || !imageUrl || !navigator.share) return;
+
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const file = new File([blob], 'trendsnap-creation.jpg', { type: blob.type });
+
+            const shareData = {
+                files: [file],
+                title: 'TrendSnap Creation',
+                text: `I created this with TrendSnap! Check it out. #TrendSnapAI`,
+            };
+
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData);
+            } else {
+                console.warn("Sharing not supported for this data.");
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
+        }
+    };
 
     return (
         <div className="z-10 flex flex-col items-center justify-start w-full h-full flex-1 min-h-0 p-4 overflow-y-auto">
@@ -202,6 +227,7 @@ const CreatePage: React.FC<CreatePageProps> = ({ initialPrompt = '' }) => {
                                 imageUrl={generatedResult.url}
                                 error={generatedResult.error}
                                 onDownload={handleDownload}
+                                onShare={handleShare}
                             />
                         )}
                     </div>

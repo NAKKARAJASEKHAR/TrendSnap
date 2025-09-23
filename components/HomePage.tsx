@@ -234,6 +234,31 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
         }
     };
 
+    const handleShareImage = async (decade: string) => {
+        const image = generatedImages[decade];
+        if (image?.status !== 'done' || !image.url || !navigator.share) return;
+
+        try {
+            const response = await fetch(image.url);
+            const blob = await response.blob();
+            const file = new File([blob], `trendsnap-${decade}.jpg`, { type: blob.type });
+
+            const shareData = {
+                files: [file],
+                title: 'TrendSnap Creation',
+                text: `I traveled to the ${decade} with TrendSnap! #TrendSnapAI`,
+            };
+
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData);
+            } else {
+                console.warn("Sharing not supported for this data.");
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
+        }
+    };
+
     const handleDownloadAlbum = async () => {
         setIsDownloading(true);
         try {
@@ -359,6 +384,7 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
                                         error={generatedImages[decade]?.error}
                                         onShake={handleRegenerateDecade}
                                         onDownload={handleDownloadIndividualImage}
+                                        onShare={handleShareImage}
                                         isMobile={isMobile}
                                     />
                                 </div>
@@ -390,6 +416,7 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
                                             error={generatedImages[decade]?.error}
                                             onShake={handleRegenerateDecade}
                                             onDownload={handleDownloadIndividualImage}
+                                            onShare={handleShareImage}
                                             isMobile={isMobile}
                                         />
                                     </motion.div>
