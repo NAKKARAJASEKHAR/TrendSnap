@@ -21,6 +21,7 @@ import AdminPage, { CollectionItem } from './components/AdminPage';
 import VideoScribePage from './components/VideoScribePage';
 import CreatePage from './components/CreatePage';
 import LoginPage from './components/LoginPage';
+import GoogleAd from './components/GoogleAd'; // Import the new ad component
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -193,7 +194,7 @@ function App() {
 
             <main 
                 className={cn(
-                    "flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto relative transition-all duration-300 ease-in-out",
+                    "flex-1 flex flex-col items-center justify-start p-4 overflow-y-auto relative transition-all duration-300 ease-in-out",
                     isMobile && "ml-20"
                 )}
                 onClick={handleContentClick}
@@ -215,7 +216,13 @@ function App() {
                         )}
                     </button>
                 )}
-                {renderPage()}
+                <div className="flex-1 w-full flex flex-col items-center justify-center">
+                    {renderPage()}
+                </div>
+                {/* Ad Banner */}
+                <div className="w-full flex justify-center mt-auto pt-4">
+                    <GoogleAd />
+                </div>
             </main>
         </div>
     );
