@@ -25,7 +25,7 @@ const trendingImages = [
     { id: 12, rank: 12, imageUrl: 'https://images.unsplash.com/photo-1688537619478-55b6183f334a?q=80&w=800&auto=format&fit=crop', prompt: 'Person as a cartoon character from a modern animated movie.', generationCount: 8233 },
     { id: 13, rank: 13, imageUrl: 'https://images.unsplash.com/photo-1679083216832-6b9a8f4c3bfc?q=80&w=800&auto=format&fit=crop', prompt: 'Robot with a soul, looking wistfully at a butterfly.', generationCount: 7988 },
     { id: 14, rank: 14, imageUrl: 'https://images.unsplash.com/photo-1518314916381-77a37c2a49ae?q=80&w=800&auto=format&fit=crop', prompt: 'Hacker in a dark room, code reflecting in their glasses.', generationCount: 7714 },
-    { id: 15, rank: 15, imageUrl: 'https://images.unsplash.com/photo-1617986414991-299b9a6962f9?q=80&w=800&auto=format&fit=crop', prompt: 'Street art mural of a person\'s face, vibrant and full of life.', generationCount: 7501 },
+    { id: 15, rank: 15, imageUrl: 'https://images.unsplash.com/photo-1617986414991-299b9a6ih-962f9?q=80&w=800&auto=format&fit=crop', prompt: 'Street art mural of a person\'s face, vibrant and full of life.', generationCount: 7501 },
     { id: 16, rank: 16, imageUrl: 'https://images.unsplash.com/photo-1501432377862-3d0432b87a14?q=80&w=800&auto=format&fit=crop', prompt: 'Person\'s face made of swirling galaxies and stardust.', generationCount: 7289 },
     { id: 17, rank: 17, imageUrl: 'https://images.unsplash.com/photo-1695431442089-b5a0a5531d04?q=80&w=800&auto=format&fit=crop', prompt: 'A shadowy noir detective on a foggy night.', generationCount: 7015 },
     { id: 18, rank: 18, imageUrl: 'https://images.unsplash.com/photo-1681237889162-8785f8948701?q=80&w=800&auto=format&fit=crop', prompt: 'Tribal warrior with intricate face paint and bone armor.', generationCount: 6842 },
@@ -134,6 +134,32 @@ const TrendingPage = () => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+    };
+
+    const handleShare = async () => {
+        const imageUrl = generationResult.url;
+        if (generationResult.status !== 'done' || !imageUrl || !navigator.share) return;
+
+        try {
+            // Convert data URL to a File object
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const file = new File([blob], 'past-forward-creation.jpg', { type: blob.type });
+
+            const shareData = {
+                files: [file],
+                title: 'Past Forward Creation',
+                text: `I remixed a trending style with Past Forward! #PastForwardAI`,
+            };
+
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData);
+            } else {
+                console.warn("Sharing not supported for this file/data.");
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
         }
     };
 
@@ -250,6 +276,7 @@ const TrendingPage = () => {
                                     imageUrl={generationResult.url}
                                     error={generationResult.error}
                                     onDownload={handleDownload}
+                                    onShare={() => handleShare()}
                                 />
                             </div>
                         </motion.div>

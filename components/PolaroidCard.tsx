@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { DraggableCardContainer, DraggableCardBody } from './ui/draggable-card';
 import { cn } from '../lib/utils';
 import type { PanInfo } from 'framer-motion';
@@ -17,6 +17,7 @@ interface PolaroidCardProps {
     dragConstraintsRef?: React.RefObject<HTMLElement>;
     onShake?: (caption: string) => void;
     onDownload?: (caption: string) => void;
+    onShare?: (caption: string) => void; // New prop for sharing
     onReupload?: () => void;
     isMobile?: boolean;
 }
@@ -50,14 +51,14 @@ const Placeholder = () => (
 );
 
 
-const PolaroidCard: React.FC<PolaroidCardProps> = ({ imageUrl, caption, status, error, dragConstraintsRef, onShake, onDownload, onReupload, isMobile }) => {
-    const [isDeveloped, setIsDeveloped] = useState(false);
-    const [isImageLoaded, setIsImageLoaded] = useState(false);
-    const lastShakeTime = useRef(0);
-    const lastVelocity = useRef({ x: 0, y: 0 });
+const PolaroidCard: React.FC<PolaroidCardProps> = ({ imageUrl, caption, status, error, dragConstraintsRef, onShake, onDownload, onShare, onReupload, isMobile }) => {
+    const [isDeveloped, setIsDeveloped] = React.useState(false);
+    const [isImageLoaded, setIsImageLoaded] = React.useState(false);
+    const lastShakeTime = React.useRef(0);
+    const lastVelocity = React.useRef({ x: 0, y: 0 });
 
     // Reset states when the image URL changes or status goes to pending.
-    useEffect(() => {
+    React.useEffect(() => {
         if (status === 'pending') {
             setIsDeveloped(false);
             setIsImageLoaded(false);
@@ -69,7 +70,7 @@ const PolaroidCard: React.FC<PolaroidCardProps> = ({ imageUrl, caption, status, 
     }, [imageUrl, status]);
 
     // When the image is loaded, start the developing animation.
-    useEffect(() => {
+    React.useEffect(() => {
         if (isImageLoaded) {
             const timer = setTimeout(() => {
                 setIsDeveloped(true);
@@ -147,6 +148,20 @@ const PolaroidCard: React.FC<PolaroidCardProps> = ({ imageUrl, caption, status, 
                                     </svg>
                                 </button>
                             )}
+                             {onShare && typeof navigator.share === 'function' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onShare(caption);
+                                    }}
+                                    className="p-2 bg-black/50 rounded-full text-white hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white"
+                                    aria-label={`Share image for ${caption}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                                    </svg>
+                                </button>
+                            )}
                              {isMobile && onShake && (
                                 <button
                                     onClick={(e) => {
@@ -157,7 +172,7 @@ const PolaroidCard: React.FC<PolaroidCardProps> = ({ imageUrl, caption, status, 
                                     aria-label={`Regenerate image for ${caption}`}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186l-1.42.71a5.002 5.002 0 00-8.479-1.554H10a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm12 14a1 1 0 01-1-1v-2.101a7.002 7.002 0 01-11.899-2.186l1.42-.71a5.002 5.002 0 008.479 1.554H10a1 1 0 110-2h6a1 1 0 011 1v6a1 1 0 01-1 1z" clipRule="evenodd" />
+                                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186l-1.42.71a5.002 5.002 0 00-8.479-1.554H10a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm12 14a1 1 0 01-1-1v-2.101a7.002 7.002 0 01-11.899-2.186l1.42-.71a5.002 5.002 0 008.479 1.554H10a1 1 0 110 2h6a1 1 0 011 1v6a1 1 0 01-1 1z" clipRule="evenodd" />
                                     </svg>
                                 </button>
                             )}

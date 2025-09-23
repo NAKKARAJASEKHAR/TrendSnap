@@ -1,4 +1,5 @@
-/// <reference types="vite/client" />
+// FIX: Removed reference to "vite/client" which was not found.
+// The necessary types for import.meta.env are provided globally in App.tsx.
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -268,9 +269,10 @@ interface AdminPageProps {
     onCollectionItemsChange: React.Dispatch<React.SetStateAction<CollectionItem[]>>;
     videoItems: VideoItem[];
     onVideoItemsChange: React.Dispatch<React.SetStateAction<VideoItem[]>>;
+    onLogout: () => void;
 }
 
-const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItemsChange, videoItems, onVideoItemsChange }) => {
+const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItemsChange, videoItems, onVideoItemsChange, onLogout }) => {
     const [view, setView] = useState<AdminView>('idle');
     const [editingImage, setEditingImage] = useState<CollectionItem | null>(null);
     const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
@@ -456,9 +458,15 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
             <input type="file" ref={newImageFileInputRef} onChange={handleNewImageUpload} className="hidden" accept="image/png,image/jpeg,image/webp" />
 
             <motion.div className="max-w-6xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <div className="text-center mb-12">
+                <div className="relative text-center mb-12">
                     <h2 className="text-5xl md:text-8xl font-caveat font-bold">Admin Panel</h2>
                     <p className="font-permanent-marker text-neutral-300 mt-4 text-xl">Manage App Content</p>
+                    <button 
+                        onClick={onLogout}
+                        className="absolute top-0 right-0 font-permanent-marker text-lg text-center text-white bg-white/10 backdrop-blur-sm border-2 border-white/80 py-2 px-6 rounded-sm transform transition-transform duration-200 hover:scale-105 hover:rotate-2 hover:bg-white hover:text-black"
+                    >
+                        Logout
+                    </button>
                 </div>
 
                 <div className="mb-12 min-h-[100px] flex items-center justify-center">

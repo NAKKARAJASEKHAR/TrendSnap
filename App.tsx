@@ -1,4 +1,13 @@
-/// <reference types="vite/client" />
+// FIX: Replaced the reference to "vite/client" with a global type definition
+// to resolve "Cannot find type definition file" and subsequent import.meta.env errors.
+// This is a workaround for a likely misconfigured TypeScript environment.
+declare global {
+    interface ImportMeta {
+        readonly env: {
+            readonly VITE_API_BASE_URL?: string;
+        }
+    }
+}
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -11,6 +20,7 @@ import TrendingPage from './components/TrendingPage';
 import AdminPage, { CollectionItem } from './components/AdminPage';
 import VideoScribePage from './components/VideoScribePage';
 import CreatePage from './components/CreatePage';
+import LoginPage from './components/LoginPage';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -49,6 +59,9 @@ function App() {
     const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
     const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
     const [apiError, setApiError] = useState<string | null>(null);
+
+    // --- Auth State ---
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     // --- Data Fetching from Backend API ---
     useEffect(() => {
@@ -117,6 +130,15 @@ function App() {
         setCurrentPage('create');
     };
 
+    const handleLoginSuccess = () => {
+        setIsAuthenticated(true);
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        setCurrentPage('home');
+    };
+
     const renderPage = () => {
         switch (currentPage) {
             case 'home':
@@ -128,12 +150,17 @@ function App() {
             case 'create':
                 return <CreatePage initialPrompt={initialPromptForCreate} />;
             case 'admin':
-                return <AdminPage 
-                            collectionItems={collectionItems}
-                            onCollectionItemsChange={setCollectionItems}
-                            videoItems={videoItems}
-                            onVideoItemsChange={setVideoItems}
-                        />;
+                return isAuthenticated ? (
+                    <AdminPage 
+                        collectionItems={collectionItems}
+                        onCollectionItemsChange={setCollectionItems}
+                        videoItems={videoItems}
+                        onVideoItemsChange={setVideoItems}
+                        onLogout={handleLogout}
+                    />
+                ) : (
+                    <LoginPage onLoginSuccess={handleLoginSuccess} />
+                );
             case 'videoScribe':
                 return <VideoScribePage videoItems={videoItems} />;
             default:

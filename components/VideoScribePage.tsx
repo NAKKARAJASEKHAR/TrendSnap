@@ -58,9 +58,11 @@ interface VideoScribePageProps {
 }
 
 const VideoScribePage: React.FC<VideoScribePageProps> = ({ videoItems }) => {
-    const [copiedScriptId, setCopiedScriptId] = useState<number | null>(null);
+    // FIX: Changed state type to handle both string and number IDs from the database.
+    const [copiedScriptId, setCopiedScriptId] = useState<string | number | null>(null);
 
-    const handleCopyScript = (script: string, id: number) => {
+    // FIX: Updated function signature to accept both string and number for the ID.
+    const handleCopyScript = (script: string, id: string | number) => {
         navigator.clipboard.writeText(script);
         setCopiedScriptId(id);
         setTimeout(() => setCopiedScriptId(null), 2000); // Reset after 2 seconds
