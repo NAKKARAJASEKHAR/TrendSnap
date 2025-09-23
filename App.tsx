@@ -1,0 +1,173 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+import React, { useState, useEffect } from 'react';
+import Footer from './components/Footer';
+import Sidebar, { Page } from './components/Sidebar';
+import HomePage from './components/HomePage';
+import CollectionPage from './components/CollectionPage';
+import TrendingPage from './components/TrendingPage';
+import AdminPage, { CollectionItem } from './components/AdminPage';
+import VideoScribePage from './components/VideoScribePage';
+import CreatePage from './components/CreatePage';
+import { cn } from './lib/utils';
+
+export interface VideoItem {
+    id: number;
+    url: string; // Original YouTube URL
+    script: string;
+}
+
+const useMediaQuery = (query: string) => {
+    const [matches, setMatches] = useState(false);
+    useEffect(() => {
+        const media = window.matchMedia(query);
+        if (media.matches !== matches) {
+            setMatches(media.matches);
+        }
+        const listener = () => setMatches(media.matches);
+        window.addEventListener('resize', listener);
+        return () => window.removeEventListener('resize', listener);
+    }, [matches, query]);
+    return matches;
+};
+
+function App() {
+    const [currentPage, setCurrentPage] = useState<Page>('home');
+    const [initialPromptForCreate, setInitialPromptForCreate] = useState('');
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const [isSidebarVisible, setIsSidebarVisible] = useState(!isMobile);
+
+    // --- State for Admin-managed content ---
+    // State is now initialized as empty and will be populated by a fetch call.
+    const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
+    const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
+
+    // --- Data Fetching Effect ---
+    // This useEffect hook fetches data from a backend when the app loads.
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // In a real app, you would fetch from your live API endpoints.
+                // e.g., const imageResponse = await fetch('/api/images');
+                // const images = await imageResponse.json();
+                // setCollectionItems(images);
+                
+                // For this demonstration, we'll initialize with one sample video
+                // as if it were fetched from a database.
+                 setVideoItems([
+                    {
+                        id: 1,
+                        url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
+                        script: 'This is a sample script for a video about AI. The script appears next to the video player, allowing for easy reading and reference. The content here is managed entirely from the Admin Panel, where you can add, edit, or delete videos.'
+                    },
+                ]);
+
+            } catch (error) {
+                console.error("Failed to fetch initial data from the server:", error);
+                // In a real app, you might set an error state to show a message to the user.
+            }
+        };
+
+        fetchData();
+    }, []); // The empty dependency array ensures this runs only once on mount.
+
+
+    useEffect(() => {
+        // Adjust sidebar visibility when switching between mobile and desktop views
+        setIsSidebarVisible(!isMobile);
+    }, [isMobile]);
+
+
+    // Clear the initial prompt when navigating away from the create page
+    useEffect(() => {
+        if (currentPage !== 'create') {
+            setInitialPromptForCreate('');
+        }
+    }, [currentPage]);
+ 
+    const handleToggleSidebar = (e?: React.MouseEvent) => {
+        e?.stopPropagation(); // Prevent content click handler from firing
+        setIsSidebarVisible(!isSidebarVisible);
+    };
+
+    const handleContentClick = () => {
+        if (isSidebarVisible && !isMobile) {
+            setIsSidebarVisible(false);
+        }
+    };
+
+    const handleNavigateToCreateWithPrompt = (prompt: string) => {
+        setInitialPromptForCreate(prompt);
+        setCurrentPage('create');
+    };
+
+    const renderPage = () => {
+        switch (currentPage) {
+            case 'home':
+                return <HomePage isMobile={isMobile} />;
+            case 'trending':
+                return <TrendingPage />;
+            case 'collection':
+                return <CollectionPage collectionItems={collectionItems} onStyleSelect={handleNavigateToCreateWithPrompt} />;
+            case 'create':
+                return <CreatePage initialPrompt={initialPromptForCreate} />;
+            case 'admin':
+                return <AdminPage 
+                            collectionItems={collectionItems}
+                            onCollectionItemsChange={setCollectionItems}
+                            videoItems={videoItems}
+                            onVideoItemsChange={setVideoItems}
+                        />;
+            case 'videoScribe':
+                return <VideoScribePage videoItems={videoItems} />;
+            default:
+                return <HomePage isMobile={isMobile} />;
+        }
+    };
+
+    return (
+        <div className="bg-black text-neutral-200 min-h-screen w-full flex">
+            <div className="absolute top-0 left-0 w-full h-full bg-grid-white/[0.05]"></div>
+            
+            <Sidebar 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+                isVisible={isSidebarVisible}
+                isMobile={isMobile}
+            />
+
+            <main 
+                className={cn(
+                    "flex-1 flex flex-col items-center justify-center p-4 pb-24 overflow-y-auto relative transition-all duration-300 ease-in-out",
+                    isMobile && "ml-20"
+                )}
+                onClick={handleContentClick}
+            >
+                {!isMobile && (
+                    <button
+                        onClick={handleToggleSidebar}
+                        className="absolute top-5 left-5 z-30 p-2 bg-neutral-800/50 rounded-full text-white hover:bg-neutral-700/70 transition-colors"
+                        aria-label={isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
+                    >
+                        {isSidebarVisible ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        )}
+                    </button>
+                )}
+                {renderPage()}
+            </main>
+
+            <Footer />
+        </div>
+    );
+}
+
+export default App;
