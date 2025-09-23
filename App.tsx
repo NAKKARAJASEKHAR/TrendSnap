@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect } from 'react';
-import Footer from './components/Footer';
 import Sidebar, { Page } from './components/Sidebar';
 import HomePage from './components/HomePage';
 import CollectionPage from './components/CollectionPage';
@@ -140,7 +139,7 @@ function App() {
 
             <main 
                 className={cn(
-                    "flex-1 flex flex-col items-center justify-center p-4 pb-24 overflow-y-auto relative transition-all duration-300 ease-in-out",
+                    "flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto relative transition-all duration-300 ease-in-out",
                     isMobile && "ml-20"
                 )}
                 onClick={handleContentClick}
@@ -164,8 +163,6 @@ function App() {
                 )}
                 {renderPage()}
             </main>
-
-            <Footer />
         </div>
     );
 }
