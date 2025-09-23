@@ -1,3 +1,4 @@
+// FIX: Removed reference to "vite/client" which was not found, resolving a type definition error. The necessary types for import.meta.env are provided globally in App.tsx.
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -6,9 +7,12 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 
-// FIX: Per coding guidelines, use process.env.API_KEY directly for initialization
-// and remove the vite-specific environment variable handling to resolve type errors.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// FIX: Per coding guidelines and for Vite compatibility, use import.meta.env.VITE_API_KEY
+// for the API key. This is essential for a secure and successful deployment on hosting platforms.
+if (!import.meta.env.VITE_API_KEY) {
+    throw new Error("VITE_API_KEY environment variable not set");
+}
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
 
 // --- Custom Error Types ---
