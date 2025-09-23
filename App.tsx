@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -11,12 +12,17 @@ import AdminPage, { CollectionItem } from './components/AdminPage';
 import VideoScribePage from './components/VideoScribePage';
 import CreatePage from './components/CreatePage';
 import { cn } from './lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+
 
 export interface VideoItem {
-    id: number;
+    id: number | string; // ID can be number for local, string for DB
     url: string; // Original YouTube URL
     script: string;
 }
+
+// Define the base URL for the API. Use Vite's environment variables with a fallback for local development.
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5001';
 
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(false);
@@ -32,6 +38,7 @@ const useMediaQuery = (query: string) => {
     return matches;
 };
 
+
 function App() {
     const [currentPage, setCurrentPage] = useState<Page>('home');
     const [initialPromptForCreate, setInitialPromptForCreate] = useState('');
@@ -39,38 +46,46 @@ function App() {
     const [isSidebarVisible, setIsSidebarVisible] = useState(!isMobile);
 
     // --- State for Admin-managed content ---
-    // State is now initialized as empty and will be populated by a fetch call.
     const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
     const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
+    const [apiError, setApiError] = useState<string | null>(null);
 
-    // --- Data Fetching Effect ---
-    // This useEffect hook fetches data from a backend when the app loads.
+    // --- Data Fetching from Backend API ---
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // In a real app, you would fetch from your live API endpoints.
-                // e.g., const imageResponse = await fetch('/api/images');
-                // const images = await imageResponse.json();
-                // setCollectionItems(images);
-                
-                // For this demonstration, we'll initialize with one sample video
-                // as if it were fetched from a database.
-                 setVideoItems([
-                    {
-                        id: 1,
-                        url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
-                        script: 'This is a sample script for a video about AI. The script appears next to the video player, allowing for easy reading and reference. The content here is managed entirely from the Admin Panel, where you can add, edit, or delete videos.'
-                    },
+                const [imagesRes, videosRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/images`),
+                    fetch(`${API_BASE_URL}/api/videos`)
                 ]);
 
+                if (!imagesRes.ok || !videosRes.ok) {
+                    throw new Error('Failed to fetch data from server');
+                }
+
+                const imagesData = await imagesRes.json();
+                const videosData = await videosRes.json();
+
+                // Mongoose's toJSON virtuals often transform _id to id.
+                // The frontend types (string | number) are compatible.
+                setCollectionItems(imagesData);
+                setVideoItems(videosData);
+                setApiError(null); // Clear any previous errors on successful fetch
             } catch (error) {
-                console.error("Failed to fetch initial data from the server:", error);
-                // In a real app, you might set an error state to show a message to the user.
+                console.error("API fetch failed:", error);
+                setApiError("API fetch failed, loading sample data as a fallback.");
+                // Load static sample data as a fallback if the API is down
+                setCollectionItems([
+                    { id: 'sample1', url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_1.jpeg', prompt: 'A majestic dragon perched atop a snow-covered mountain peak at dawn.' },
+                    { id: 'sample2', url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_2.jpeg', prompt: 'Cyberpunk warrior princess with neon katanas on a rainy Tokyo street.' },
+                ]);
+                setVideoItems([
+                    { id: 'sample1', url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ', script: 'This is a sample script. In a real app, this content would be loaded from your database via a backend API.' },
+                ]);
             }
         };
-
         fetchData();
-    }, []); // The empty dependency array ensures this runs only once on mount.
+    }, []);
 
 
     useEffect(() => {
@@ -136,6 +151,18 @@ function App() {
                 isVisible={isSidebarVisible}
                 isMobile={isMobile}
             />
+             <AnimatePresence>
+                {apiError && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -50 }}
+                        className="absolute top-0 left-0 right-0 z-[100] bg-red-600/90 text-white text-center p-3 font-bold shadow-lg"
+                    >
+                        {apiError}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <main 
                 className={cn(

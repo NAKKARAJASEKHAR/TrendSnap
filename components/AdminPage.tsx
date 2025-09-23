@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,28 +9,28 @@ import { VideoItem } from '../App';
 
 // --- Type Definitions ---
 export interface CollectionItem {
-    id: number;
+    id: number | string;
     url: string;
     prompt: string;
 }
 type AdminView = 'idle' | 'addingImage' | 'addingVideo';
 
+type ToastNotification = {
+    id: number;
+    message: string;
+    type: 'success' | 'error';
+};
+
+// Define the base URL for the API. Use Vite's environment variables with a fallback for local development.
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5001';
+
 
 // --- Helper Functions ---
-
-/**
- * Converts a Google Drive sharing URL into a direct, embeddable URL.
- * @param url The Google Drive URL.
- * @param type The content type, 'image' for direct download, 'video' for preview embed.
- * @returns The transformed URL or null if the input is not a valid Google Drive URL.
- */
 const convertGoogleDriveUrl = (url: string, type: 'image' | 'video'): string | null => {
-    // This more robust regex finds the file ID from various GDrive URL formats.
     const regex = /\/file\/d\/([a-zA-Z0-9_-]{25,})|id=([a-zA-Z0-9_-]{25,})|uc\?id=([a-zA-Z0-9_-]{25,})/;
     const match = url.match(regex);
 
     if (match && url.includes('drive.google.com')) {
-        // The file ID will be in one of the capture groups
         const fileId = match[1] || match[2] || match[3];
         if (fileId) {
             if (type === 'image') {
@@ -43,53 +44,9 @@ const convertGoogleDriveUrl = (url: string, type: 'image' | 'video'): string | n
     return null;
 };
 
-/**
- * Attempts to extract a direct image URL from a social media page (X, Threads).
- * Uses a CORS proxy to fetch the page's HTML and parse the og:image meta tag.
- * @param url The social media page URL.
- * @returns A promise that resolves to the direct image URL.
- */
-async function resolveSocialMediaImageUrl(url: string): Promise<string> {
-    // Use a reliable public CORS proxy to fetch the page's HTML.
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    
-    try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch from proxy with status: ${response.status}`);
-        }
-        return await parseHtmlForImage(response);
-
-    } catch (error) {
-        console.error("Error resolving social media URL:", error);
-        throw new Error("Unable to extract image. The link might be private, invalid, or the site may block scraping.");
-    }
-}
-
-async function parseHtmlForImage(response: Response): Promise<string> {
-    const html = await response.text();
-    // Use the browser's built-in DOM parser, which is more robust than regex for HTML.
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    
-    // Find the <meta> tag with property="og:image".
-    const metaTag = doc.querySelector('meta[property="og:image"]');
-    
-    if (metaTag) {
-        const imageUrl = metaTag.getAttribute('content');
-        if (imageUrl) {
-            return imageUrl;
-        }
-    }
-    
-    throw new Error("Could not find a main image ('og:image' tag) in the provided link.");
-}
-
-
 const getYouTubeEmbedUrl = (url: string): string | null => {
     let videoId: string | null = null;
     try {
-        // Regular expression to capture video ID from various YouTube URL formats
         const patterns = [
             /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
             /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/,
@@ -128,7 +85,6 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
         return <video src={url} controls className="w-full h-full object-contain bg-black"></video>;
     }
     
-    // Provide clearer feedback for unsupported social media links
     if(url.includes('x.com') || url.includes('twitter.com') || url.includes('threads.net')) {
          return <div className="w-full h-full flex items-center justify-center text-center p-4"><p className="text-neutral-500">Social media links are not supported for video.<br/>Please use a YouTube, Google Drive, or direct video link (.mp4).</p></div>;
     }
@@ -144,12 +100,10 @@ const smallDangerButtonClasses = "text-sm font-bold text-white bg-red-600 py-1 p
 const dangerButtonClasses = "font-permanent-marker text-xl text-center text-white bg-red-600 py-3 px-8 rounded-sm transform transition-transform duration-200 hover:scale-105 hover:-rotate-2 hover:bg-red-500 shadow-[2px_2px_0px_2px_rgba(0,0,0,0.2)]";
 
 // --- Modal Components ---
-
-const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
+const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem) => Promise<void>, onClose: () => void }> = ({ item, onSave, onClose }) => {
     const [editedUrl, setEditedUrl] = useState(item.url.startsWith('data:') ? '' : item.url);
     const [editedPrompt, setEditedPrompt] = useState(item.prompt);
     const [preview, setPreview] = useState<string | null>(item.url);
-    const [isResolvingUrl, setIsResolvingUrl] = useState(false);
     const editFileInputRef = useRef<HTMLInputElement>(null);
 
     const processFile = (file: File) => {
@@ -171,34 +125,19 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
         }
     };
 
-    const handlePreviewUrl = async (url: string) => {
+    const handlePreviewUrl = (url: string) => {
         if (!url.trim()) return;
 
         const googleDriveUrl = convertGoogleDriveUrl(url, 'image');
-        if (googleDriveUrl) {
-            setPreview(`https://corsproxy.io/?${encodeURIComponent(googleDriveUrl)}`);
-            return;
-        }
-
-        if (url.includes('x.com') || url.includes('twitter.com') || url.includes('threads.net')) {
-            setIsResolvingUrl(true);
-            try {
-                const resolvedUrl = await resolveSocialMediaImageUrl(url);
-                setPreview(resolvedUrl);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "Could not fetch image from this URL.");
-                setPreview(item.url); // Reset to original on failure
-            } finally {
-                setIsResolvingUrl(false);
-            }
-        } else {
-            setPreview(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-        }
+        setPreview(googleDriveUrl || url);
     };
 
     const handleSave = () => {
-        if (preview && editedPrompt.trim()) onSave({ ...item, url: preview, prompt: editedPrompt });
-        else alert("Please ensure there is a preview image and the prompt is not empty.");
+        if (preview && editedPrompt.trim()) {
+            onSave({ ...item, url: preview, prompt: editedPrompt });
+        } else {
+            alert("Please ensure there is a preview image and the prompt is not empty.");
+        }
     };
 
     return (
@@ -212,10 +151,11 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
                         <div className="mt-2 space-y-4">
                             <div className="flex gap-2">
                                 <input type="url" value={editedUrl} onChange={(e) => setEditedUrl(e.target.value)} placeholder="Paste new URL..." className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
-                                <button onClick={() => handlePreviewUrl(editedUrl)} className={`${secondaryButtonClasses} text-sm px-4`} disabled={isResolvingUrl}>
-                                    {isResolvingUrl ? 'Fetching...' : 'Preview'}
+                                <button onClick={() => handlePreviewUrl(editedUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>
+                                    Preview
                                 </button>
                             </div>
+                             <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link.</p>
                             <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-neutral-700" /></div><div className="relative flex justify-center"><span className="bg-neutral-900 px-2 text-sm text-neutral-500">OR</span></div></div>
                             <button onClick={() => editFileInputRef.current?.click()} className={`${secondaryButtonClasses} w-full`}>Upload New File</button>
                         </div>
@@ -234,7 +174,7 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
     );
 };
 
-const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
+const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => Promise<void>, onClose: () => void }> = ({ item, onSave, onClose }) => {
     const [editedUrl, setEditedUrl] = useState(item.url);
     const [editedScript, setEditedScript] = useState(item.script);
     const [previewUrl, setPreviewUrl] = useState(item.url);
@@ -301,6 +241,26 @@ const ConfirmationModal: React.FC<{ onConfirm: () => void, onCancel: () => void 
     </motion.div>
 );
 
+const ToastContainer: React.FC<{ notifications: ToastNotification[], onDismiss: (id: number) => void }> = ({ notifications, onDismiss }) => (
+    <div className="fixed bottom-4 right-4 z-[100] w-80 space-y-3">
+        <AnimatePresence>
+            {notifications.map(toast => (
+                <motion.div
+                    key={toast.id}
+                    layout
+                    initial={{ opacity: 0, y: 50, scale: 0.3 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                    className={`relative p-4 rounded-md shadow-lg text-white border ${toast.type === 'success' ? 'bg-green-600/80 border-green-500' : 'bg-red-600/80 border-red-500'}`}
+                >
+                    <p className="font-bold text-sm">{toast.message}</p>
+                    <button onClick={() => onDismiss(toast.id)} className="absolute top-1 right-1 text-white/70 hover:text-white">&times;</button>
+                </motion.div>
+            ))}
+        </AnimatePresence>
+    </div>
+);
+
 
 // --- Main Component ---
 interface AdminPageProps {
@@ -314,20 +274,25 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
     const [view, setView] = useState<AdminView>('idle');
     const [editingImage, setEditingImage] = useState<CollectionItem | null>(null);
     const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
-    const [itemToDelete, setItemToDelete] = useState<{ type: 'image' | 'video', id: number } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ type: 'image' | 'video', id: number | string } | null>(null);
+    const [toasts, setToasts] = useState<ToastNotification[]>([]);
     
-    // State for the "Add Image" form
+    // Form states
     const [newImageUrl, setNewImageUrl] = useState('');
     const [newImagePrompt, setNewImagePrompt] = useState('');
     const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
-    const [isResolvingUrl, setIsResolvingUrl] = useState(false);
     const newImageFileInputRef = useRef<HTMLInputElement>(null);
-
-    // State for the "Add Video" form
     const [newVideoUrl, setNewVideoUrl] = useState('');
     const [newVideoScript, setNewVideoScript] = useState('');
     const [newVideoPreviewUrl, setNewVideoPreviewUrl] = useState<string | null>(null);
 
+    const addToast = (message: string, type: 'success' | 'error') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== id));
+        }, 5000);
+    };
 
     const processFile = (file: File, callback: (dataUrl: string) => void) => {
         if (file && ["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
@@ -335,7 +300,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
             reader.onloadend = () => callback(reader.result as string);
             reader.readAsDataURL(file);
         } else {
-            alert("Please upload a valid image file (PNG, JPG, WEBP).");
+            addToast("Please upload a valid image file (PNG, JPG, WEBP).", 'error');
         }
     };
 
@@ -343,160 +308,140 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
         if (e.target.files?.[0]) {
             processFile(e.target.files[0], (dataUrl) => {
                 setNewImagePreview(dataUrl);
-                setNewImageUrl(''); // Clear URL field on upload
+                setNewImageUrl('');
             });
         }
     };
 
-    const handlePreviewUrl = async (url: string) => {
+    const handlePreviewUrl = (url: string) => {
         if (!url.trim()) return;
-
         const googleDriveUrl = convertGoogleDriveUrl(url, 'image');
-        if (googleDriveUrl) {
-            setNewImagePreview(`https://corsproxy.io/?${encodeURIComponent(googleDriveUrl)}`);
-            return;
-        }
-
-        if (url.includes('x.com') || url.includes('twitter.com') || url.includes('threads.net')) {
-            setIsResolvingUrl(true);
-            try {
-                const resolvedUrl = await resolveSocialMediaImageUrl(url);
-                setNewImagePreview(resolvedUrl);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "Could not fetch image from this URL.");
-                setNewImagePreview(null);
-            } finally {
-                setIsResolvingUrl(false);
-            }
-        } else {
-             setNewImagePreview(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-        }
+        setNewImagePreview(googleDriveUrl || url);
     };
     
     const handleSaveNewImage = async () => {
         if (!newImagePreview || !newImagePrompt.trim()) {
-            alert("Please provide a valid image (via URL or upload) and a prompt before saving.");
+            addToast("Image preview and prompt are required.", 'error');
             return;
         }
         
-        const newImage: Omit<CollectionItem, 'id'> = {
+        const newImagePayload = {
             url: newImagePreview,
             prompt: newImagePrompt,
         };
 
-        // ** REAL-WORLD-APP: This is where you would make an API call **
-        // try {
-        //     const response = await fetch('/api/images', {
-        //         method: 'POST',
-        //         headers: { 'Content-Type': 'application/json' },
-        //         body: JSON.stringify(newImage),
-        //     });
-        //     if (!response.ok) throw new Error('Failed to save to database');
-        //     const savedImage = await response.json(); // The backend returns the item with its new ID
-        //     onCollectionItemsChange(prev => [savedImage, ...prev]);
-        // } catch (error) {
-        //     console.error(error);
-        //     alert('Error saving image to the database.');
-        // }
-
-        // For demonstration, we add it directly to the state with a temporary ID
-        const tempNewImage = { ...newImage, id: Date.now() };
-        onCollectionItemsChange(prev => [tempNewImage, ...prev]);
-        
-        // Reset form
-        setNewImageUrl('');
-        setNewImagePrompt('');
-        setNewImagePreview(null);
-        setView('idle');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/images`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newImagePayload)
+            });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const savedImage = await response.json();
+            
+            onCollectionItemsChange(prev => [savedImage, ...prev]);
+            addToast('Image saved successfully!', 'success');
+            
+            setNewImageUrl(''); setNewImagePrompt(''); setNewImagePreview(null);
+            setView('idle');
+        } catch (error) {
+            console.error("Failed to save new image:", error);
+            addToast(error instanceof Error ? error.message : 'Failed to save image.', 'error');
+        }
     };
 
     const handleUpdateImage = async (item: CollectionItem) => {
-        // ** REAL-WORLD-APP: This is where you would make an API call **
-        // try {
-        //     const response = await fetch(`/api/images/${item.id}`, {
-        //         method: 'PUT', // or 'PATCH'
-        //         headers: { 'Content-Type': 'application/json' },
-        //         body: JSON.stringify(item),
-        //     });
-        //     if (!response.ok) throw new Error('Failed to update in database');
-        //     const updatedImage = await response.json();
-        //     onCollectionItemsChange(prev => prev.map(i => i.id === updatedImage.id ? updatedImage : i));
-        // } catch (error) {
-        //     console.error(error);
-        //     alert('Error updating image in the database.');
-        // }
-
-        // For demonstration, we update the state directly
-        onCollectionItemsChange(prev => prev.map(i => i.id === item.id ? item : i));
-        setEditingImage(null);
+         try {
+            const response = await fetch(`${API_BASE_URL}/api/images/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: item.url, prompt: item.prompt })
+            });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const updatedImage = await response.json();
+            
+            onCollectionItemsChange(prev => prev.map(i => i.id === updatedImage.id ? updatedImage : i));
+            setEditingImage(null);
+            addToast('Image updated successfully!', 'success');
+        } catch (error) {
+            console.error("Failed to update image:", error);
+            addToast(error instanceof Error ? error.message : 'Failed to update image.', 'error');
+        }
     };
     
-    const handleDeleteRequest = (type: 'image' | 'video', id: number) => {
+    const handleDeleteRequest = (type: 'image' | 'video', id: number | string) => {
         setItemToDelete({ type, id });
     };
 
     const handleConfirmDelete = async () => {
         if (!itemToDelete) return;
+        const { type, id } = itemToDelete;
+        
+        const endpoint = type === 'image' ? `/api/images/${id}` : `/api/videos/${id}`;
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
 
-        // ** REAL-WORLD-APP: This is where you would make an API call **
-        // try {
-        //     const response = await fetch(`/api/${itemToDelete.type}s/${itemToDelete.id}`, {
-        //         method: 'DELETE',
-        //     });
-        //     if (!response.ok) throw new Error('Failed to delete from database');
-        //     // On successful deletion, update the local state
-        //     if (itemToDelete.type === 'image') {
-        //         onCollectionItemsChange(prev => prev.filter(i => i.id !== itemToDelete.id));
-        //     } else if (itemToDelete.type === 'video') {
-        //         onVideoItemsChange(prev => prev.filter(v => v.id !== itemToDelete.id));
-        //     }
-        // } catch (error) {
-        //     console.error(error);
-        //     alert('Error deleting item from the database.');
-        // }
-        
-        // For demonstration, we update the state directly
-        if (itemToDelete.type === 'image') {
-            onCollectionItemsChange(prev => prev.filter(i => i.id !== itemToDelete.id));
-        } else if (itemToDelete.type === 'video') {
-            onVideoItemsChange(prev => prev.filter(v => v.id !== itemToDelete.id));
+            if (type === 'image') {
+                onCollectionItemsChange(prev => prev.filter(i => i.id !== id));
+            } else {
+                onVideoItemsChange(prev => prev.filter(v => v.id !== id));
+            }
+            addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, 'success');
+        } catch (error) {
+             console.error(`Failed to delete ${type}:`, error);
+             addToast(error instanceof Error ? error.message : `Failed to delete ${type}.`, 'error');
+        } finally {
+            setItemToDelete(null);
         }
-        
-        setItemToDelete(null); // Close the modal
     };
 
     const handleSaveNewVideo = async () => {
         if (!newVideoUrl.trim() || !newVideoScript.trim()) {
-            alert("Please provide both a video URL and a script.");
+            addToast("Video URL and script are required.", 'error');
             return;
         }
 
-        const newVideo: Omit<VideoItem, 'id'> = {
-            url: newVideoUrl,
-            script: newVideoScript,
-        };
-
-        // ** REAL-WORLD-APP: This is where you would make an API call **
-        // See handleSaveNewImage for an example of a fetch call.
-
-        // For demonstration, we add it directly to the state
-        const tempNewVideo = { ...newVideo, id: Date.now() };
-        onVideoItemsChange(prev => [tempNewVideo, ...prev]);
+        const newVideoPayload = { url: newVideoUrl, script: newVideoScript };
         
-        // Reset form
-        setNewVideoUrl('');
-        setNewVideoScript('');
-        setNewVideoPreviewUrl(null);
-        setView('idle');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newVideoPayload)
+            });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const savedVideo = await response.json();
+
+            onVideoItemsChange(prev => [savedVideo, ...prev]);
+            addToast('Video saved successfully!', 'success');
+            
+            setNewVideoUrl(''); setNewVideoScript(''); setNewVideoPreviewUrl(null);
+            setView('idle');
+        } catch (error) {
+             console.error("Failed to save new video:", error);
+             addToast(error instanceof Error ? error.message : 'Failed to save video.', 'error');
+        }
     };
 
     const handleUpdateVideo = async (item: VideoItem) => {
-        // ** REAL-WORLD-APP: This is where you would make an API call **
-        // See handleUpdateImage for an example of a fetch call.
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/videos/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: item.url, script: item.script })
+            });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const updatedVideo = await response.json();
 
-        // For demonstration, we update the state directly
-        onVideoItemsChange(prev => prev.map(v => v.id === item.id ? item : v));
-        setEditingVideo(null);
+            onVideoItemsChange(prev => prev.map(v => v.id === updatedVideo.id ? updatedVideo : v));
+            setEditingVideo(null);
+            addToast('Video updated successfully!', 'success');
+        } catch (error) {
+            console.error("Failed to update video:", error);
+            addToast(error instanceof Error ? error.message : 'Failed to update video.', 'error');
+        }
     };
 
     const motionProps = {
@@ -534,11 +479,12 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                                 <label className="font-permanent-marker text-neutral-300 text-lg">Image Source</label>
                                                 <div className="mt-2 space-y-4">
                                                     <div className="flex gap-2">
-                                                        <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="Paste URL (direct, X/Threads, or Google Drive)..." />
-                                                        <button onClick={() => handlePreviewUrl(newImageUrl)} className={`${secondaryButtonClasses} text-sm px-4`} disabled={isResolvingUrl}>
-                                                            {isResolvingUrl ? 'Fetching...' : 'Preview'}
+                                                        <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="Paste direct image or Google Drive URL..." />
+                                                        <button onClick={() => handlePreviewUrl(newImageUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>
+                                                            Preview
                                                         </button>
                                                     </div>
+                                                     <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link.</p>
                                                     <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-neutral-700" /></div><div className="relative flex justify-center"><span className="bg-neutral-900 px-2 text-sm text-neutral-500">OR</span></div></div>
                                                     <button onClick={() => newImageFileInputRef.current?.click()} className={`${secondaryButtonClasses} w-full`}>Upload from Computer</button>
                                                 </div>
@@ -553,13 +499,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                             </div>
                                         </div>
                                         <div className="w-full md:w-1/3 h-64 flex items-center justify-center bg-neutral-800/50 border-2 border-dashed border-neutral-700 rounded-lg overflow-hidden">
-                                            {isResolvingUrl ? (
-                                                <div className="flex flex-col items-center gap-2 text-neutral-500">
-                                                    <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                    <span>Fetching...</span>
-                                                </div>
-                                            ) : newImagePreview ? (
-                                                <img src={newImagePreview} alt="Preview" className="w-full h-full object-cover" onError={() => {alert('Could not load image from this URL. It might be blocked or incorrect.'); setNewImagePreview(null)}} />
+                                            {newImagePreview ? (
+                                                <img src={newImagePreview} alt="Preview" className="w-full h-full object-cover" onError={() => {addToast('Could not load preview. The URL might be incorrect or blocked.', 'error'); setNewImagePreview(null)}} />
                                             ) : (
                                                 <p className="text-neutral-500">Preview</p>
                                             )}
@@ -657,6 +598,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
 
             </motion.div>
             
+            <ToastContainer notifications={toasts} onDismiss={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
+
             <AnimatePresence>
                 {editingImage && <EditImageModal item={editingImage} onSave={handleUpdateImage} onClose={() => setEditingImage(null)} />}
                 {editingVideo && <EditVideoModal item={editingVideo} onSave={handleUpdateVideo} onClose={() => setEditingVideo(null)} />}
