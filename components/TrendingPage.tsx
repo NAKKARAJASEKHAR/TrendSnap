@@ -130,7 +130,7 @@ const TrendingPage = () => {
             const link = document.createElement('a');
             link.href = generationResult.url;
             const filename = (generationResult.prompt?.substring(0, 30) || 'creation').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            link.download = `past-forward-trending-${filename}.jpg`;
+            link.download = `trendsnap-trending-${filename}.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -145,12 +145,12 @@ const TrendingPage = () => {
             // Convert data URL to a File object
             const response = await fetch(imageUrl);
             const blob = await response.blob();
-            const file = new File([blob], 'past-forward-creation.jpg', { type: blob.type });
+            const file = new File([blob], 'trendsnap-creation.jpg', { type: blob.type });
 
             const shareData = {
                 files: [file],
-                title: 'Past Forward Creation',
-                text: `I remixed a trending style with Past Forward! #PastForwardAI`,
+                title: 'TrendSnap Creation',
+                text: `I remixed a trending style with TrendSnap! #TrendSnapAI`,
             };
 
             if (navigator.canShare && navigator.canShare(shareData)) {

@@ -13,7 +13,7 @@ const TrendingIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} x
 const CollectionIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 const CreateIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.293 2.293c.63.63 1.707.63 2.337 0l2.293-2.293c.63-.63.63-1.707 0-2.337L15.637.363c-.63-.63-1.707-.63-2.337 0L11 2.663c-.63.63-.63 1.707 0 2.337zM1 11l2.293 2.293c.63.63 1.707.63 2.337 0l2.293-2.293c.63-.63.63-1.707 0-2.337L5.637 6.363c-.63-.63-1.707-.63-2.337 0L1 8.663c-.63.63-.63 1.707 0 2.337zm18 0l2.293 2.293c.63.63 1.707.63 2.337 0l2.293-2.293c.63-.63.63-1.707 0-2.337L21.637 6.363c-.63-.63-1.707-.63-2.337 0L17 8.663c-.63.63-.63 1.707 0 2.337z" /></svg>;
 const VideoScribeIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>;
-const AdminIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const AdminIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066 2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
 const PAGE_CONFIG: { page: Page; label: string; icon: React.ReactElement<any> }[] = [
     { page: 'home', label: 'Home', icon: <HomeIcon /> },
@@ -93,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible,
                     onClick={() => onPageChange('home')}
                     aria-label="Go to Home page"
                 >
-                    <h1 className="text-3xl font-caveat font-bold text-neutral-100">PF</h1>
+                    <h1 className="text-3xl font-caveat font-bold text-neutral-100">TS</h1>
                 </div>
                 <nav className="flex flex-col items-center gap-4 px-3">
                     {PAGE_CONFIG.map(({ page, label, icon }) => (
@@ -123,7 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible,
                         className="text-4xl font-caveat font-bold text-neutral-100 cursor-pointer"
                         onClick={() => onPageChange('home')}
                     >
-                        Past Forward
+                        TrendSnap
                     </h1>
                 </div>
                 <nav className="flex flex-col gap-4">

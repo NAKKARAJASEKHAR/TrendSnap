@@ -227,7 +227,7 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
         if (image?.status === 'done' && image.url) {
             const link = document.createElement('a');
             link.href = image.url;
-            link.download = `past-forward-${decade}.jpg`;
+            link.download = `trendsnap-${decade}.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -255,7 +255,7 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
 
             const link = document.createElement('a');
             link.href = albumDataUrl;
-            link.download = 'past-forward-album.jpg';
+            link.download = 'trendsnap-album.jpg';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -273,7 +273,7 @@ const HomePage: React.FC<HomePageProps> = ({ isMobile }) => {
             <input ref={fileInputRef} id="file-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} />
             
             <div className="text-center mb-10">
-                <h1 className="text-5xl font-caveat font-bold text-neutral-100 md:hidden">Past Forward</h1>
+                <h1 className="text-5xl font-caveat font-bold text-neutral-100 md:hidden">TrendSnap</h1>
                 <p className="font-permanent-marker text-neutral-300 mt-2 text-xl tracking-wide">Generate yourself through the decades.</p>
             </div>
 

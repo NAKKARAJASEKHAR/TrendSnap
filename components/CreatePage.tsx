@@ -138,7 +138,7 @@ const CreatePage: React.FC<CreatePageProps> = ({ initialPrompt = '' }) => {
             link.href = generatedResult.url;
             // Sanitize prompt for filename
             const filename = (prompt.substring(0, 30) || 'creation').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            link.download = `past-forward-creation-${filename}.jpg`;
+            link.download = `trendsnap-creation-${filename}.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
