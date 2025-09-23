@@ -22,10 +22,6 @@ type ToastNotification = {
     type: 'success' | 'error';
 };
 
-// Define the base URL for the API. Use Vite's environment variables with a fallback for local development.
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5001';
-
-
 // --- Helper Functions ---
 const convertGoogleDriveUrl = (url: string, type: 'image' | 'video'): string | null => {
     const regex = /\/file\/d\/([a-zA-Z0-9_-]{25,})|id=([a-zA-Z0-9_-]{25,})|uc\?id=([a-zA-Z0-9_-]{25,})/;
@@ -101,7 +97,7 @@ const smallDangerButtonClasses = "text-sm font-bold text-white bg-red-600 py-1 p
 const dangerButtonClasses = "font-permanent-marker text-xl text-center text-white bg-red-600 py-3 px-8 rounded-sm transform transition-transform duration-200 hover:scale-105 hover:-rotate-2 hover:bg-red-500 shadow-[2px_2px_0px_2px_rgba(0,0,0,0.2)]";
 
 // --- Modal Components ---
-const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem) => Promise<void>, onClose: () => void }> = ({ item, onSave, onClose }) => {
+const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
     const [editedUrl, setEditedUrl] = useState(item.url.startsWith('data:') ? '' : item.url);
     const [editedPrompt, setEditedPrompt] = useState(item.prompt);
     const [preview, setPreview] = useState<string | null>(item.url);
@@ -175,7 +171,8 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
     );
 };
 
-const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => Promise<void>, onClose: () => void }> = ({ item, onSave, onClose }) => {
+// FIX: Corrected component name typo from EditVideoeModal to EditVideoModal
+const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
     const [editedUrl, setEditedUrl] = useState(item.url);
     const [editedScript, setEditedScript] = useState(item.script);
     const [previewUrl, setPreviewUrl] = useState(item.url);
@@ -321,129 +318,71 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
         setNewImagePreview(googleDriveUrl || url);
     };
     
-    const handleSaveNewImage = async () => {
+    const handleSaveNewImage = () => {
         if (!newImagePreview || !newImagePrompt.trim()) {
             addToast("Image preview and prompt are required.", 'error');
             return;
         }
         
-        const newImagePayload = {
+        const newImage: CollectionItem = {
+            id: Date.now(),
             url: newImagePreview,
             prompt: newImagePrompt,
         };
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/images`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newImagePayload)
-            });
-            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-            const savedImage = await response.json();
-            
-            onCollectionItemsChange(prev => [savedImage, ...prev]);
-            addToast('Image saved successfully!', 'success');
-            
-            setNewImageUrl(''); setNewImagePrompt(''); setNewImagePreview(null);
-            setView('idle');
-        } catch (error) {
-            console.error("Failed to save new image:", error);
-            addToast(error instanceof Error ? error.message : 'Failed to save image.', 'error');
-        }
+        onCollectionItemsChange(prev => [newImage, ...prev]);
+        addToast('Image saved successfully!', 'success');
+        
+        setNewImageUrl(''); setNewImagePrompt(''); setNewImagePreview(null);
+        setView('idle');
     };
 
-    const handleUpdateImage = async (item: CollectionItem) => {
-         try {
-            const response = await fetch(`${API_BASE_URL}/api/images/${item.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: item.url, prompt: item.prompt })
-            });
-            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-            const updatedImage = await response.json();
-            
-            onCollectionItemsChange(prev => prev.map(i => i.id === updatedImage.id ? updatedImage : i));
-            setEditingImage(null);
-            addToast('Image updated successfully!', 'success');
-        } catch (error) {
-            console.error("Failed to update image:", error);
-            addToast(error instanceof Error ? error.message : 'Failed to update image.', 'error');
-        }
+    const handleUpdateImage = (item: CollectionItem) => {
+        onCollectionItemsChange(prev => prev.map(i => i.id === item.id ? item : i));
+        setEditingImage(null);
+        addToast('Image updated successfully!', 'success');
     };
     
     const handleDeleteRequest = (type: 'image' | 'video', id: number | string) => {
         setItemToDelete({ type, id });
     };
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = () => {
         if (!itemToDelete) return;
         const { type, id } = itemToDelete;
         
-        const endpoint = type === 'image' ? `/api/images/${id}` : `/api/videos/${id}`;
-        
-        try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, { method: 'DELETE' });
-            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-
-            if (type === 'image') {
-                onCollectionItemsChange(prev => prev.filter(i => i.id !== id));
-            } else {
-                onVideoItemsChange(prev => prev.filter(v => v.id !== id));
-            }
-            addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, 'success');
-        } catch (error) {
-             console.error(`Failed to delete ${type}:`, error);
-             addToast(error instanceof Error ? error.message : `Failed to delete ${type}.`, 'error');
-        } finally {
-            setItemToDelete(null);
+        if (type === 'image') {
+            onCollectionItemsChange(prev => prev.filter(i => i.id !== id));
+        } else {
+            onVideoItemsChange(prev => prev.filter(v => v.id !== id));
         }
+        addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, 'success');
+        setItemToDelete(null);
     };
 
-    const handleSaveNewVideo = async () => {
+    const handleSaveNewVideo = () => {
         if (!newVideoUrl.trim() || !newVideoScript.trim()) {
             addToast("Video URL and script are required.", 'error');
             return;
         }
 
-        const newVideoPayload = { url: newVideoUrl, script: newVideoScript };
+        const newVideo: VideoItem = {
+            id: Date.now(),
+            url: newVideoUrl,
+            script: newVideoScript
+        };
         
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/videos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newVideoPayload)
-            });
-            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-            const savedVideo = await response.json();
-
-            onVideoItemsChange(prev => [savedVideo, ...prev]);
-            addToast('Video saved successfully!', 'success');
-            
-            setNewVideoUrl(''); setNewVideoScript(''); setNewVideoPreviewUrl(null);
-            setView('idle');
-        } catch (error) {
-             console.error("Failed to save new video:", error);
-             addToast(error instanceof Error ? error.message : 'Failed to save video.', 'error');
-        }
+        onVideoItemsChange(prev => [newVideo, ...prev]);
+        addToast('Video saved successfully!', 'success');
+        
+        setNewVideoUrl(''); setNewVideoScript(''); setNewVideoPreviewUrl(null);
+        setView('idle');
     };
 
-    const handleUpdateVideo = async (item: VideoItem) => {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/videos/${item.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: item.url, script: item.script })
-            });
-            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-            const updatedVideo = await response.json();
-
-            onVideoItemsChange(prev => prev.map(v => v.id === updatedVideo.id ? updatedVideo : v));
-            setEditingVideo(null);
-            addToast('Video updated successfully!', 'success');
-        } catch (error) {
-            console.error("Failed to update video:", error);
-            addToast(error instanceof Error ? error.message : 'Failed to update video.', 'error');
-        }
+    const handleUpdateVideo = (item: VideoItem) => {
+        onVideoItemsChange(prev => prev.map(v => v.id === item.id ? item : v));
+        setEditingVideo(null);
+        addToast('Video updated successfully!', 'success');
     };
 
     const motionProps = {

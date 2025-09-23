@@ -24,7 +24,6 @@ import CreatePage from './components/CreatePage';
 import LoginPage from './components/LoginPage';
 import GoogleAd from './components/GoogleAd'; // Import the new ad component
 import { cn } from './lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
 
 
 export interface VideoItem {
@@ -32,9 +31,6 @@ export interface VideoItem {
     url: string; // Original YouTube URL
     script: string;
 }
-
-// Define the base URL for the API. Use Vite's environment variables with a fallback for local development.
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5001';
 
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(false);
@@ -57,50 +53,51 @@ function App() {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const [isSidebarVisible, setIsSidebarVisible] = useState(!isMobile);
 
-    // --- State for Admin-managed content ---
-    const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
-    const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
-    const [apiError, setApiError] = useState<string | null>(null);
+    // --- State for Admin-managed content, now persisted with localStorage ---
+    const [collectionItems, setCollectionItems] = useState<CollectionItem[]>(() => {
+        try {
+            const savedItems = localStorage.getItem('collectionItems');
+            return savedItems ? JSON.parse(savedItems) : [
+                { id: 1, url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_1.jpeg', prompt: 'A majestic dragon perched atop a snow-covered mountain peak at dawn.' },
+                { id: 2, url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_2.jpeg', prompt: 'Cyberpunk warrior princess with neon katanas on a rainy Tokyo street.' },
+            ];
+        } catch (error) {
+            console.error("Failed to parse collection items from localStorage", error);
+            return [];
+        }
+    });
+
+    const [videoItems, setVideoItems] = useState<VideoItem[]>(() => {
+        try {
+            const savedItems = localStorage.getItem('videoItems');
+            return savedItems ? JSON.parse(savedItems) : [
+                { id: 1, url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ', script: 'This is a sample script. This content is now saved in your browser.' },
+            ];
+        } catch (error) {
+            console.error("Failed to parse video items from localStorage", error);
+            return [];
+        }
+    });
 
     // --- Auth State ---
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    // --- Data Fetching from Backend API ---
+    // --- Data Persistence to localStorage ---
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [imagesRes, videosRes] = await Promise.all([
-                    fetch(`${API_BASE_URL}/api/images`),
-                    fetch(`${API_BASE_URL}/api/videos`)
-                ]);
+        try {
+            localStorage.setItem('collectionItems', JSON.stringify(collectionItems));
+        } catch (error) {
+            console.error("Failed to save collection items to localStorage", error);
+        }
+    }, [collectionItems]);
 
-                if (!imagesRes.ok || !videosRes.ok) {
-                    throw new Error('Failed to fetch data from server');
-                }
-
-                const imagesData = await imagesRes.json();
-                const videosData = await videosRes.json();
-
-                // Mongoose's toJSON virtuals often transform _id to id.
-                // The frontend types (string | number) are compatible.
-                setCollectionItems(imagesData);
-                setVideoItems(videosData);
-                setApiError(null); // Clear any previous errors on successful fetch
-            } catch (error) {
-                console.error("API fetch failed:", error);
-                setApiError("API fetch failed, loading sample data as a fallback.");
-                // Load static sample data as a fallback if the API is down
-                setCollectionItems([
-                    { id: 'sample1', url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_1.jpeg', prompt: 'A majestic dragon perched atop a snow-covered mountain peak at dawn.' },
-                    { id: 'sample2', url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_2.jpeg', prompt: 'Cyberpunk warrior princess with neon katanas on a rainy Tokyo street.' },
-                ]);
-                setVideoItems([
-                    { id: 'sample1', url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ', script: 'This is a sample script. In a real app, this content would be loaded from your database via a backend API.' },
-                ]);
-            }
-        };
-        fetchData();
-    }, []);
+    useEffect(() => {
+        try {
+            localStorage.setItem('videoItems', JSON.stringify(videoItems));
+        } catch (error) {
+            console.error("Failed to save video items to localStorage", error);
+        }
+    }, [videoItems]);
 
 
     useEffect(() => {
@@ -180,18 +177,6 @@ function App() {
                 isVisible={isSidebarVisible}
                 isMobile={isMobile}
             />
-             <AnimatePresence>
-                {apiError && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -50 }}
-                        className="absolute top-0 left-0 right-0 z-[100] bg-red-600/90 text-white text-center p-3 font-bold shadow-lg"
-                    >
-                        {apiError}
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             <main 
                 className={cn(
