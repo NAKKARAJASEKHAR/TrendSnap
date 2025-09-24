@@ -7,6 +7,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoItem } from '../App';
 import { convertGoogleDriveUrl, getYouTubeEmbedUrl } from '../lib/urlUtils';
+import { uploadImage } from '../services/apiService';
 
 // --- Type Definitions ---
 export interface CollectionItem {
@@ -54,19 +55,18 @@ const smallDangerButtonClasses = "text-sm font-bold text-white bg-red-600 py-1 p
 const dangerButtonClasses = "font-permanent-marker text-xl text-center text-white bg-red-600 py-3 px-8 rounded-sm transform transition-transform duration-200 hover:scale-105 hover:-rotate-2 hover:bg-red-500 shadow-[2px_2px_0px_2px_rgba(0,0,0,0.2)]";
 
 // --- Modal Components ---
-const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
+const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: CollectionItem, file?: File) => void, onClose: () => void }> = ({ item, onSave, onClose }) => {
     const [editedUrl, setEditedUrl] = useState(item.url.startsWith('data:') ? '' : item.url);
     const [editedPrompt, setEditedPrompt] = useState(item.prompt);
     const [preview, setPreview] = useState<string | null>(item.url);
+    const [editedFile, setEditedFile] = useState<File | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const editFileInputRef = useRef<HTMLInputElement>(null);
 
     const processFile = (file: File) => {
         if (file && ["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreview(reader.result as string);
-                setEditedUrl(''); // Clear URL field on upload
-            };
+            reader.onloadend = () => setPreview(reader.result as string);
             reader.readAsDataURL(file);
         } else {
             alert("Please upload a valid image file (PNG, JPG, WEBP).");
@@ -75,22 +75,35 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
     
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
-            processFile(e.target.files[0]);
+            const file = e.target.files[0];
+            setEditedFile(file);
+            setEditedUrl(''); // Clear URL field on upload
+            processFile(file);
         }
     };
 
     const handlePreviewUrl = (url: string) => {
         if (!url.trim()) return;
-
         const googleDriveUrl = convertGoogleDriveUrl(url, 'image');
         setPreview(googleDriveUrl || url);
+        setEditedUrl(url);
+        setEditedFile(null); // Clear file if URL is being used
     };
 
-    const handleSave = () => {
-        if (preview && editedPrompt.trim()) {
-            onSave({ ...item, url: preview, prompt: editedPrompt });
-        } else {
+    const handleSave = async () => {
+        if (!preview || !editedPrompt.trim()) {
             alert("Please ensure there is a preview image and the prompt is not empty.");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await onSave({ ...item, url: editedUrl, prompt: editedPrompt }, editedFile ?? undefined);
+            onClose();
+        } catch (error) {
+            console.error("Failed to save edited image:", error);
+            alert("Failed to save. Please try again.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -103,13 +116,8 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
                     <div>
                         <label className="font-permanent-marker text-neutral-300 text-lg">Image Source</label>
                         <div className="mt-2 space-y-4">
-                            <div className="flex gap-2">
-                                <input type="url" value={editedUrl} onChange={(e) => setEditedUrl(e.target.value)} placeholder="Paste new URL..." className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
-                                <button onClick={() => handlePreviewUrl(editedUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>
-                                    Preview
-                                </button>
-                            </div>
-                             <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link.</p>
+                             <input type="url" value={editedUrl} onChange={(e) => setEditedUrl(e.target.value)} onBlur={(e) => handlePreviewUrl(e.target.value)} placeholder="Paste new URL..." className="w-full p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
+                             <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link. Preview auto-updates when you click away.</p>
                             <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-neutral-700" /></div><div className="relative flex justify-center"><span className="bg-neutral-900 px-2 text-sm text-neutral-500">OR</span></div></div>
                             <button onClick={() => editFileInputRef.current?.click()} className={`${secondaryButtonClasses} w-full`}>Upload New File</button>
                         </div>
@@ -118,7 +126,7 @@ const EditImageModal: React.FC<{ item: CollectionItem, onSave: (item: Collection
                         <label className="font-permanent-marker text-neutral-300 text-lg">Prompt</label>
                         <textarea value={editedPrompt} onChange={(e) => setEditedPrompt(e.target.value)} className="w-full h-24 p-3 mt-2 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
                     </div>
-                    <div className="flex gap-4"><button onClick={handleSave} className={`${primaryButtonClasses} text-lg`}>Save</button><button onClick={onClose} className={secondaryButtonClasses}>Cancel</button></div>
+                    <div className="flex gap-4"><button onClick={handleSave} className={`${primaryButtonClasses} text-lg`} disabled={isSaving}>{isSaving ? "Saving..." : "Save"}</button><button onClick={onClose} className={secondaryButtonClasses}>Cancel</button></div>
                 </div>
                 <div className="w-full md:w-1/3 h-64 flex items-center justify-center bg-neutral-800/50 border-2 border-dashed border-neutral-700 rounded-lg overflow-hidden">
                     {preview ? <img src={preview} alt="Preview" className="w-full h-full object-cover" onError={() => setPreview(null)} /> : <p className="text-neutral-500">Preview</p>}
@@ -134,10 +142,11 @@ const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => v
     const [editedScript, setEditedScript] = useState(item.script);
     const [previewUrl, setPreviewUrl] = useState(item.url);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!editedUrl.trim()) { alert("Please enter a video URL."); return; }
         if (!editedScript.trim()) { alert("Please enter a script."); return; }
-        onSave({ ...item, url: editedUrl, script: editedScript });
+        await onSave({ ...item, url: editedUrl, script: editedScript });
+        onClose();
     };
 
     return (
@@ -147,9 +156,8 @@ const EditVideoModal: React.FC<{ item: VideoItem, onSave: (item: VideoItem) => v
                     <h3 className="text-3xl font-permanent-marker text-yellow-400">Edit Video</h3>
                     <div>
                         <label className="font-permanent-marker text-neutral-300 text-lg">Video URL</label>
-                        <div className="flex gap-2 mt-2">
-                             <input type="url" value={editedUrl} onChange={(e) => setEditedUrl(e.target.value)} className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
-                             <button onClick={() => setPreviewUrl(editedUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>Preview</button>
+                        <div className="mt-2">
+                             <input type="url" value={editedUrl} onChange={(e) => setEditedUrl(e.target.value)} onBlur={(e) => setPreviewUrl(e.target.value)} className="w-full p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" />
                         </div>
                         <p className="text-xs text-neutral-500 mt-2">Use YouTube, Google Drive, or direct video links (.mp4). Social media links like X/Threads are not supported for video.</p>
                     </div>
@@ -220,13 +228,21 @@ const ToastContainer: React.FC<{ notifications: ToastNotification[], onDismiss: 
 // --- Main Component ---
 interface AdminPageProps {
     collectionItems: CollectionItem[];
-    onCollectionItemsChange: React.Dispatch<React.SetStateAction<CollectionItem[]>>;
+    onAddCollectionItem: (item: Omit<CollectionItem, 'id'>, file?: File) => Promise<void>;
+    onUpdateCollectionItem: (item: CollectionItem, file?: File) => Promise<void>;
+    onDeleteCollectionItem: (id: string | number) => Promise<void>;
     videoItems: VideoItem[];
-    onVideoItemsChange: React.Dispatch<React.SetStateAction<VideoItem[]>>;
+    onAddVideoItem: (item: Omit<VideoItem, 'id'>) => Promise<void>;
+    onUpdateVideoItem: (item: VideoItem) => Promise<void>;
+    onDeleteVideoItem: (id: string | number) => Promise<void>;
     onLogout: () => void;
 }
 
-const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItemsChange, videoItems, onVideoItemsChange, onLogout }) => {
+const AdminPage: React.FC<AdminPageProps> = ({ 
+    collectionItems, onAddCollectionItem, onUpdateCollectionItem, onDeleteCollectionItem, 
+    videoItems, onAddVideoItem, onUpdateVideoItem, onDeleteVideoItem, 
+    onLogout 
+}) => {
     const [view, setView] = useState<AdminView>('idle');
     const [editingImage, setEditingImage] = useState<CollectionItem | null>(null);
     const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
@@ -234,9 +250,11 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
     const [toasts, setToasts] = useState<ToastNotification[]>([]);
     
     // Form states
+    const [isSaving, setIsSaving] = useState(false);
     const [newImageUrl, setNewImageUrl] = useState('');
     const [newImagePrompt, setNewImagePrompt] = useState('');
     const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+    const [newImageFile, setNewImageFile] = useState<File | null>(null);
     const newImageFileInputRef = useRef<HTMLInputElement>(null);
     const [newVideoUrl, setNewVideoUrl] = useState('');
     const [newVideoScript, setNewVideoScript] = useState('');
@@ -262,8 +280,10 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
 
     const handleNewImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
-            processFile(e.target.files[0], (dataUrl) => {
+            const file = e.target.files[0];
+            processFile(file, (dataUrl) => {
                 setNewImagePreview(dataUrl);
+                setNewImageFile(file);
                 setNewImageUrl('');
             });
         }
@@ -273,73 +293,89 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
         if (!url.trim()) return;
         const googleDriveUrl = convertGoogleDriveUrl(url, 'image');
         setNewImagePreview(googleDriveUrl || url);
+        setNewImageUrl(url);
+        setNewImageFile(null); // Pasting URL clears any selected file
     };
     
-    const handleSaveNewImage = () => {
+    const handleSaveNewImage = async () => {
         if (!newImagePreview || !newImagePrompt.trim()) {
             addToast("Image preview and prompt are required.", 'error');
             return;
         }
-        
-        const newImage: CollectionItem = {
-            id: Date.now(),
-            url: newImagePreview,
-            prompt: newImagePrompt,
-        };
-
-        onCollectionItemsChange(prev => [newImage, ...prev]);
-        addToast('Image saved successfully!', 'success');
-        
-        setNewImageUrl(''); setNewImagePrompt(''); setNewImagePreview(null);
-        setView('idle');
+        setIsSaving(true);
+        try {
+            await onAddCollectionItem({ url: newImageUrl, prompt: newImagePrompt }, newImageFile ?? undefined);
+            addToast('Image saved successfully!', 'success');
+            setNewImageUrl(''); setNewImagePrompt(''); setNewImagePreview(null); setNewImageFile(null);
+            setView('idle');
+        } catch (error) {
+            console.error("Failed to save new image:", error);
+            addToast("Failed to save image. Please try again.", 'error');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleUpdateImage = (item: CollectionItem) => {
-        onCollectionItemsChange(prev => prev.map(i => i.id === item.id ? item : i));
-        setEditingImage(null);
-        addToast('Image updated successfully!', 'success');
+    const handleUpdateImage = async (item: CollectionItem, file?: File) => {
+        try {
+            await onUpdateCollectionItem(item, file);
+            addToast('Image updated successfully!', 'success');
+        } catch (error) {
+            console.error("Failed to update image:", error);
+            addToast("Failed to update image. Please try again.", 'error');
+        }
     };
     
     const handleDeleteRequest = (type: 'image' | 'video', id: number | string) => {
         setItemToDelete({ type, id });
     };
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (!itemToDelete) return;
         const { type, id } = itemToDelete;
         
-        if (type === 'image') {
-            onCollectionItemsChange(prev => prev.filter(i => i.id !== id));
-        } else {
-            onVideoItemsChange(prev => prev.filter(v => v.id !== id));
+        try {
+            if (type === 'image') {
+                await onDeleteCollectionItem(id);
+            } else {
+                await onDeleteVideoItem(id);
+            }
+            addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, 'success');
+        } catch (error) {
+            console.error(`Failed to delete ${type}:`, error);
+            addToast(`Failed to delete ${type}. Please try again.`, 'error');
+        } finally {
+            setItemToDelete(null);
         }
-        addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, 'success');
-        setItemToDelete(null);
     };
 
-    const handleSaveNewVideo = () => {
+    const handleSaveNewVideo = async () => {
         if (!newVideoUrl.trim() || !newVideoScript.trim()) {
             addToast("Video URL and script are required.", 'error');
             return;
         }
-
-        const newVideo: VideoItem = {
-            id: Date.now(),
-            url: newVideoUrl,
-            script: newVideoScript
-        };
-        
-        onVideoItemsChange(prev => [newVideo, ...prev]);
-        addToast('Video saved successfully!', 'success');
-        
-        setNewVideoUrl(''); setNewVideoScript(''); setNewVideoPreviewUrl(null);
-        setView('idle');
+        setIsSaving(true);
+        try {
+            await onAddVideoItem({ url: newVideoUrl, script: newVideoScript });
+            addToast('Video saved successfully!', 'success');
+            setNewVideoUrl(''); setNewVideoScript(''); setNewVideoPreviewUrl(null);
+            setView('idle');
+        } catch (error) {
+            console.error("Failed to save video:", error);
+            addToast("Failed to save video. Please try again.", 'error');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleUpdateVideo = (item: VideoItem) => {
-        onVideoItemsChange(prev => prev.map(v => v.id === item.id ? item : v));
-        setEditingVideo(null);
-        addToast('Video updated successfully!', 'success');
+    const handleUpdateVideo = async (item: VideoItem) => {
+        try {
+            await onUpdateVideoItem(item);
+            addToast('Video updated successfully!', 'success');
+        } catch(error) {
+            console.error("Failed to update video:", error);
+            addToast("Failed to update video. Please try again.", 'error');
+        }
     };
 
     const motionProps = {
@@ -382,13 +418,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                             <div>
                                                 <label className="font-permanent-marker text-neutral-300 text-lg">Image Source</label>
                                                 <div className="mt-2 space-y-4">
-                                                    <div className="flex gap-2">
-                                                        <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="Paste direct image or Google Drive URL..." />
-                                                        <button onClick={() => handlePreviewUrl(newImageUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>
-                                                            Preview
-                                                        </button>
-                                                    </div>
-                                                     <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link.</p>
+                                                    <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} onBlur={(e) => handlePreviewUrl(e.target.value)} className="w-full p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="Paste direct image or Google Drive URL..." />
+                                                     <p className="text-xs text-neutral-500 mt-1">For best results, use a direct image URL (ending in .jpg, .png) or a Google Drive link. Preview auto-updates when you click away.</p>
                                                     <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-neutral-700" /></div><div className="relative flex justify-center"><span className="bg-neutral-900 px-2 text-sm text-neutral-500">OR</span></div></div>
                                                     <button onClick={() => newImageFileInputRef.current?.click()} className={`${secondaryButtonClasses} w-full`}>Upload from Computer</button>
                                                 </div>
@@ -398,7 +429,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                                 <textarea value={newImagePrompt} onChange={(e) => setNewImagePrompt(e.target.value)} className="w-full h-24 p-3 mt-2 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="A majestic dragon..." />
                                             </div>
                                             <div className="flex gap-4">
-                                                <button onClick={handleSaveNewImage} className={`${primaryButtonClasses} text-lg`} disabled={!newImagePreview || !newImagePrompt.trim()}>Save</button>
+                                                <button onClick={handleSaveNewImage} className={`${primaryButtonClasses} text-lg`} disabled={!newImagePreview || !newImagePrompt.trim() || isSaving}>{isSaving ? 'Saving...' : 'Save'}</button>
                                                 <button onClick={() => setView('idle')} className={secondaryButtonClasses}>Cancel</button>
                                             </div>
                                         </div>
@@ -420,9 +451,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                     <div className="flex flex-col md:flex-row gap-8">
                                         <div className="flex-1 space-y-6">
                                             <label className="font-permanent-marker text-neutral-300 text-lg">Video URL</label>
-                                            <div className="flex gap-2 mt-2">
-                                                <input type="url" value={newVideoUrl} onChange={(e) => setNewVideoUrl(e.target.value)} className="flex-grow p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="YouTube, Google Drive, or direct video URL" />
-                                                <button onClick={() => setNewVideoPreviewUrl(newVideoUrl)} className={`${secondaryButtonClasses} text-sm px-4`}>Preview</button>
+                                            <div className="mt-2">
+                                                <input type="url" value={newVideoUrl} onChange={(e) => setNewVideoUrl(e.target.value)} onBlur={(e) => setNewVideoPreviewUrl(e.target.value)} className="w-full p-3 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="YouTube, Google Drive, or direct video URL" />
                                             </div>
                                             <p className="text-xs text-neutral-500 mt-2">Use YouTube, Google Drive, or direct video links (.mp4). Social media links like X/Threads are not supported for video.</p>
                                             <div>
@@ -430,7 +460,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ collectionItems, onCollectionItem
                                                 <textarea value={newVideoScript} onChange={(e) => setNewVideoScript(e.target.value)} className="w-full h-32 p-3 mt-2 bg-neutral-800 border-2 border-neutral-700 rounded-md" placeholder="The video starts..." />
                                             </div>
                                             <div className="flex gap-4">
-                                                <button onClick={handleSaveNewVideo} className={`${primaryButtonClasses} text-lg`} disabled={!newVideoUrl.trim() || !newVideoScript.trim()}>Save</button>
+                                                <button onClick={handleSaveNewVideo} className={`${primaryButtonClasses} text-lg`} disabled={!newVideoUrl.trim() || !newVideoScript.trim() || isSaving}>{isSaving ? 'Saving...' : 'Save'}</button>
                                                 <button onClick={() => setView('idle')} className={secondaryButtonClasses}>Cancel</button>
                                             </div>
                                         </div>

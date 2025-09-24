@@ -4,7 +4,9 @@
 declare global {
     interface ImportMeta {
         readonly env: {
-            readonly VITE_API_BASE_URL?: string;
+            // Renamed to be more descriptive. This variable should hold the URL
+            // of the hosted backend server, not a database connection string.
+            readonly VITE_BACKEND_URL?: string;
         }
     }
 }
@@ -23,6 +25,7 @@ import CreatePage from './components/CreatePage';
 import LoginPage from './components/LoginPage';
 import GoogleAd from './components/GoogleAd'; // Import the new ad component
 import { cn } from './lib/utils';
+import * as api from './services/apiService';
 
 
 export interface VideoItem {
@@ -52,31 +55,11 @@ function App() {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const [isSidebarVisible, setIsSidebarVisible] = useState(!isMobile);
 
-    // --- State for Admin-managed content, now persisted with localStorage ---
-    const [collectionItems, setCollectionItems] = useState<CollectionItem[]>(() => {
-        try {
-            const savedItems = localStorage.getItem('collectionItems');
-            return savedItems ? JSON.parse(savedItems) : [
-                { id: 1, url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_1.jpeg', prompt: 'A majestic dragon perched atop a snow-covered mountain peak at dawn.' },
-                { id: 2, url: 'https://storage.googleapis.com/aistudio-samples/past-forward/c_2.jpeg', prompt: 'Cyberpunk warrior princess with neon katanas on a rainy Tokyo street.' },
-            ];
-        } catch (error) {
-            console.error("Failed to parse collection items from localStorage", error);
-            return [];
-        }
-    });
+    // --- State for Admin-managed content, now fetched from API ---
+    const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
+    const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
+    const [isLoadingContent, setIsLoadingContent] = useState(true);
 
-    const [videoItems, setVideoItems] = useState<VideoItem[]>(() => {
-        try {
-            const savedItems = localStorage.getItem('videoItems');
-            return savedItems ? JSON.parse(savedItems) : [
-                { id: 1, url: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ', script: 'This is a sample script. This content is now saved in your browser.' },
-            ];
-        } catch (error) {
-            console.error("Failed to parse video items from localStorage", error);
-            return [];
-        }
-    });
 
     // --- Auth State ---
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -89,22 +72,26 @@ function App() {
         }
     });
 
-    // --- Data Persistence to localStorage ---
+    // --- Data Fetching from Mock API ---
     useEffect(() => {
-        try {
-            localStorage.setItem('collectionItems', JSON.stringify(collectionItems));
-        } catch (error) {
-            console.error("Failed to save collection items to localStorage", error);
-        }
-    }, [collectionItems]);
+        const loadData = async () => {
+            try {
+                setIsLoadingContent(true);
+                const [collections, videos] = await Promise.all([
+                    api.getCollectionItems(),
+                    api.getVideoItems(),
+                ]);
+                setCollectionItems(collections);
+                setVideoItems(videos);
+            } catch (error) {
+                console.error("Failed to load initial app data", error);
+            } finally {
+                setIsLoadingContent(false);
+            }
+        };
+        loadData();
+    }, []);
 
-    useEffect(() => {
-        try {
-            localStorage.setItem('videoItems', JSON.stringify(videoItems));
-        } catch (error) {
-            console.error("Failed to save video items to localStorage", error);
-        }
-    }, [videoItems]);
 
     // Persist authentication state to localStorage
     useEffect(() => {
@@ -128,6 +115,46 @@ function App() {
             setInitialPromptForCreate('');
         }
     }, [currentPage]);
+
+    // --- API Handlers for Admin Page ---
+
+    const handleAddCollectionItem = async (item: Omit<CollectionItem, 'id'>, file?: File) => {
+        let url = item.url;
+        if (file) {
+            url = await api.uploadImage(file);
+        }
+        const newItem = await api.addCollectionItem({ ...item, url });
+        setCollectionItems(prev => [newItem, ...prev]);
+    };
+    
+    const handleUpdateCollectionItem = async (item: CollectionItem, file?: File) => {
+        let url = item.url;
+        if (file) {
+            url = await api.uploadImage(file);
+        }
+        const updatedItem = await api.updateCollectionItem({ ...item, url });
+        setCollectionItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+    };
+
+    const handleDeleteCollectionItem = async (id: string | number) => {
+        await api.deleteCollectionItem(id);
+        setCollectionItems(prev => prev.filter(i => i.id !== id));
+    };
+
+    const handleAddVideoItem = async (item: Omit<VideoItem, 'id'>) => {
+        const newItem = await api.addVideoItem(item);
+        setVideoItems(prev => [newItem, ...prev]);
+    };
+
+    const handleUpdateVideoItem = async (item: VideoItem) => {
+        const updatedItem = await api.updateVideoItem(item);
+        setVideoItems(prev => prev.map(v => v.id === updatedItem.id ? updatedItem : v));
+    };
+
+    const handleDeleteVideoItem = async (id: string | number) => {
+        await api.deleteVideoItem(id);
+        setVideoItems(prev => prev.filter(v => v.id !== id));
+    };
  
     const handleToggleSidebar = (e?: React.MouseEvent) => {
         e?.stopPropagation(); // Prevent content click handler from firing
@@ -155,6 +182,18 @@ function App() {
     };
 
     const renderPage = () => {
+        // You could show a global loader here while isLoadingContent is true
+        if (isLoadingContent) {
+            return (
+                <div className="flex items-center justify-center h-full">
+                    <svg className="animate-spin h-10 w-10 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            );
+        }
+
         switch (currentPage) {
             case 'home':
                 return <HomePage isMobile={isMobile} />;
@@ -168,9 +207,13 @@ function App() {
                 return isAuthenticated ? (
                     <AdminPage 
                         collectionItems={collectionItems}
-                        onCollectionItemsChange={setCollectionItems}
+                        onAddCollectionItem={handleAddCollectionItem}
+                        onUpdateCollectionItem={handleUpdateCollectionItem}
+                        onDeleteCollectionItem={handleDeleteCollectionItem}
                         videoItems={videoItems}
-                        onVideoItemsChange={setVideoItems}
+                        onAddVideoItem={handleAddVideoItem}
+                        onUpdateVideoItem={handleUpdateVideoItem}
+                        onDeleteVideoItem={handleDeleteVideoItem}
                         onLogout={handleLogout}
                     />
                 ) : (
