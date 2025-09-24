@@ -28,12 +28,19 @@ const itemVariants: Variants = {
 
 const CollectionPage: React.FC<CollectionPageProps> = ({ collectionItems, onStyleSelect }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [copiedPromptId, setCopiedPromptId] = useState<number | string | null>(null);
 
     // For now, we'll display all items in one category.
     // A more advanced implementation could involve adding a 'category' field to CollectionItem.
     const filteredItems = collectionItems.filter(item =>
         item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleCopyPrompt = (prompt: string, id: number | string) => {
+        navigator.clipboard.writeText(prompt);
+        setCopiedPromptId(id);
+        setTimeout(() => setCopiedPromptId(null), 2000); // Reset after 2 seconds
+    };
 
     return (
         <div className="z-10 w-full h-full p-4 md:p-8 overflow-y-auto">
@@ -78,10 +85,30 @@ const CollectionPage: React.FC<CollectionPageProps> = ({ collectionItems, onStyl
                                         className="w-full h-full object-cover"
                                         loading="lazy"
                                     />
-                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                            <p className="font-permanent-marker text-white text-xl border-2 border-white px-4 py-2 rounded-sm">
-                                            Use this Style
-                                            </p>
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <p className="font-permanent-marker text-white text-xl border-2 border-white px-4 py-2 rounded-sm">
+                                        Use this Style
+                                        </p>
+                                        <div className="absolute top-2 right-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Prevent card's onClick
+                                                    handleCopyPrompt(image.prompt, image.id);
+                                                }}
+                                                className="p-2 bg-black/50 rounded-full text-white hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white transition-all"
+                                                aria-label="Copy prompt"
+                                            >
+                                                {copiedPromptId === image.id ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
                                 </Card3D>
                             ))}
