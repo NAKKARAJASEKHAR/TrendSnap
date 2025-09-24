@@ -80,7 +80,15 @@ function App() {
     });
 
     // --- Auth State ---
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        try {
+            // Check localStorage for persisted authentication state
+            return localStorage.getItem('isAuthenticated') === 'true';
+        } catch (error) {
+            console.error("Failed to read authentication state from localStorage", error);
+            return false;
+        }
+    });
 
     // --- Data Persistence to localStorage ---
     useEffect(() => {
@@ -98,6 +106,15 @@ function App() {
             console.error("Failed to save video items to localStorage", error);
         }
     }, [videoItems]);
+
+    // Persist authentication state to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem('isAuthenticated', String(isAuthenticated));
+        } catch (error) {
+            console.error("Failed to save authentication state to localStorage", error);
+        }
+    }, [isAuthenticated]);
 
 
     useEffect(() => {
@@ -176,6 +193,7 @@ function App() {
                 onPageChange={setCurrentPage}
                 isVisible={isSidebarVisible}
                 isMobile={isMobile}
+                isAuthenticated={isAuthenticated}
             />
 
             <main 
@@ -207,7 +225,7 @@ function App() {
                 </div>
                 {/* Ad Banner */}
                 <div className="w-full flex justify-center mt-auto pt-4">
-                    <GoogleAd />
+                    <GoogleAd key={`${currentPage}-${isSidebarVisible}`} />
                 </div>
             </main>
         </div>

@@ -30,6 +30,7 @@ interface SidebarProps {
     onPageChange: (page: Page) => void;
     isVisible: boolean; // For desktop toggle
     isMobile: boolean;
+    isAuthenticated: boolean;
 }
 
 // FIX: Define a dedicated interface for NavItem props to ensure correct type inference and resolve compiler errors.
@@ -83,7 +84,8 @@ const MobileNavItem: React.FC<NavItemProps> = ({ page, currentPage, onPageChange
 };
 
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible, isMobile }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible, isMobile, isAuthenticated }) => {
+    const pagesToShow = PAGE_CONFIG;
 
     if (isMobile) {
         return (
@@ -96,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible,
                     <h1 className="text-3xl font-caveat font-bold text-neutral-100">TS</h1>
                 </div>
                 <nav className="flex flex-col items-center gap-4 px-3">
-                    {PAGE_CONFIG.map(({ page, label, icon }) => (
+                    {pagesToShow.map(({ page, label, icon }) => (
                         <MobileNavItem 
                             key={page} 
                             page={page} 
@@ -127,7 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isVisible,
                     </h1>
                 </div>
                 <nav className="flex flex-col gap-4">
-                    {PAGE_CONFIG.map(({ page, label, icon }) => (
+                    {pagesToShow.map(({ page, label, icon }) => (
                          <DesktopNavItem 
                             key={page} 
                             page={page} 

@@ -13,16 +13,17 @@ declare global {
 
 const GoogleAd: React.FC = () => {
     useEffect(() => {
-        // Use a timeout to delay the ad push. This allows the container
-        // to be rendered and sized properly before the ad script runs,
-        // preventing the "availableWidth=0" error.
+        // The parent component is keyed to remount on major layout changes.
+        // We also wait for any CSS transitions (e.g., sidebar animation) to finish
+        // before pushing the ad. The longest transition in the app is 300ms,
+        // so a 350ms delay provides a safe buffer to prevent size calculation errors.
         const adTimeout = setTimeout(() => {
             try {
                 (window.adsbygoogle = window.adsbygoogle || []).push({});
             } catch (e) {
                 console.error("Adsense error:", e);
             }
-        }, 100); // A small delay is usually sufficient
+        }, 350);
 
         // Cleanup the timeout if the component unmounts
         return () => clearTimeout(adTimeout);
