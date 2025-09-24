@@ -22,6 +22,7 @@ import { VideoItem } from '../App';
 
 // The base URL for the backend API.
 // It prioritizes an environment variable, falling back to a local relative path for development.
+// When using the dev server proxy, VITE_BACKEND_URL should be undefined.
 const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
 const API_BASE_URL = env.VITE_BACKEND_URL || '/api';
 
@@ -30,13 +31,15 @@ const API_BASE_URL = env.VITE_BACKEND_URL || '/api';
  * A helper function to process the response from the fetch API.
  * It checks for errors and parses the JSON body.
  * @param response The raw Response object from a fetch call.
+ * @param requestPath The original path that was requested, for improved logging.
  * @returns A promise that resolves to the parsed JSON data.
  */
-async function handleResponse<T>(response: Response): Promise<T> {
+async function handleResponse<T>(response: Response, requestPath: string): Promise<T> {
     if (!response.ok) {
         const errorText = await response.text();
+        const url = response.url || requestPath;
         // Provide a more informative error for developers
-        console.error(`API request to ${response.url} failed with status ${response.status}: ${errorText}`);
+        console.error(`API request to ${url} failed with status ${response.status}: ${errorText}`);
         throw new Error(`The server returned an error. Please try again later.`);
     }
     // Handle responses that might not have a body (e.g., a 204 No Content from a DELETE request)
@@ -57,15 +60,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
  */
 export const uploadImage = async (file: File): Promise<string> => {
     console.log(`[API] Uploading file: ${file.name}`);
+    const path = `${API_BASE_URL}/upload`;
     const formData = new FormData();
     formData.append('file', file); // The backend will look for a 'file' field
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(path, {
         method: 'POST',
         body: formData,
     });
 
-    const result = await handleResponse<{ url: string }>(response);
+    const result = await handleResponse<{ url: string }>(response, path);
     return result.url;
 };
 
@@ -73,70 +77,78 @@ export const uploadImage = async (file: File): Promise<string> => {
 
 export const getCollectionItems = async (): Promise<CollectionItem[]> => {
     console.log('[API] Fetching collection items...');
-    const response = await fetch(`${API_BASE_URL}/collection`);
-    return handleResponse<CollectionItem[]>(response);
+    const path = `${API_BASE_URL}/collection`;
+    const response = await fetch(path);
+    return handleResponse<CollectionItem[]>(response, path);
 };
 
 export const addCollectionItem = async (item: Omit<CollectionItem, 'id'>): Promise<CollectionItem> => {
     console.log('[API] Adding new collection item:', item);
-    const response = await fetch(`${API_BASE_URL}/collection`, {
+    const path = `${API_BASE_URL}/collection`;
+    const response = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
     });
-    return handleResponse<CollectionItem>(response);
+    return handleResponse<CollectionItem>(response, path);
 };
 
 export const updateCollectionItem = async (item: CollectionItem): Promise<CollectionItem> => {
      console.log('[API] Updating collection item:', item);
-     const response = await fetch(`${API_BASE_URL}/collection/${item.id}`, {
+     const path = `${API_BASE_URL}/collection/${item.id}`;
+     const response = await fetch(path, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
     });
-    return handleResponse<CollectionItem>(response);
+    return handleResponse<CollectionItem>(response, path);
 };
 
 export const deleteCollectionItem = async (id: string | number): Promise<void> => {
     console.log(`[API] Deleting collection item with id: ${id}`);
-    const response = await fetch(`${API_BASE_URL}/collection/${id}`, {
+    const path = `${API_BASE_URL}/collection/${id}`;
+    const response = await fetch(path, {
         method: 'DELETE',
     });
-    await handleResponse<void>(response);
+    await handleResponse<void>(response, path);
 };
 
 // --- Video Items API ---
 
 export const getVideoItems = async (): Promise<VideoItem[]> => {
     console.log('[API] Fetching video items...');
-    const response = await fetch(`${API_BASE_URL}/videos`);
-    return handleResponse<VideoItem[]>(response);
+    const path = `${API_BASE_URL}/videos`;
+    const response = await fetch(path);
+    return handleResponse<VideoItem[]>(response, path);
 };
 
 export const addVideoItem = async (item: Omit<VideoItem, 'id'>): Promise<VideoItem> => {
     console.log('[API] Adding new video item:', item);
-    const response = await fetch(`${API_BASE_URL}/videos`, {
+    const path = `${API_BASE_URL}/videos`;
+    const response = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
     });
-    return handleResponse<VideoItem>(response);
+    return handleResponse<VideoItem>(response, path);
 };
 
 export const updateVideoItem = async (item: VideoItem): Promise<VideoItem> => {
      console.log('[API] Updating video item:', item);
-     const response = await fetch(`${API_BASE_URL}/videos/${item.id}`, {
+     const path = `${API_BASE_URL}/videos/${item.id}`;
+     const response = await fetch(path, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
     });
-    return handleResponse<VideoItem>(response);
+    return handleResponse<VideoItem>(response, path);
 };
 
 export const deleteVideoItem = async (id: string | number): Promise<void> => {
     console.log(`[API] Deleting video item with id: ${id}`);
-    const response = await fetch(`${API_BASE_URL}/videos/${id}`, {
+    const path = `${API_BASE_URL}/videos/${id}`;
+    const response = await fetch(path, {
         method: 'DELETE',
     });
-    await handleResponse<void>(response);
+    await handleResponse<void>(response, path);
 };
