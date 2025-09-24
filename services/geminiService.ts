@@ -1,4 +1,4 @@
-// FIX: Removed reference to "vite/client" which was not found, resolving a type definition error. The necessary types for import.meta.env are provided globally in App.tsx.
+// FIX: Removed reference to "vite/client" which was not found, resolving a type definition error.
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,20 +7,21 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 
-// Safely access the API key from environment variables.
-const API_KEY = import.meta.env?.VITE_API_KEY;
+// The API key is provided by the execution environment.
+const API_KEY = process.env.API_KEY;
 
 let ai: GoogleGenAI | null = null;
+let initError: Error | null = null;
 
-// Only initialize the SDK if the API key is present.
-if (API_KEY) {
-    try {
-        ai = new GoogleGenAI({ apiKey: API_KEY });
-    } catch (error) {
-        console.error("Failed to initialize GoogleGenAI:", error);
+// Initialize the SDK.
+try {
+    if (!API_KEY) {
+        throw new Error("API_KEY is not defined in process.env.");
     }
-} else {
-    console.warn("VITE_API_KEY is not defined. Image generation will be disabled.");
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+} catch (error) {
+    console.error("Failed to initialize GoogleGenAI:", error);
+    initError = error as Error;
 }
 
 
@@ -97,7 +98,9 @@ function processGeminiResponse(response: GenerateContentResponse): string {
 async function callGeminiWithRetry(imagePart: object, textPart: object): Promise<GenerateContentResponse> {
     // The primary check for the API key being configured.
     if (!ai) {
-        throw new GeminiError("API Key is not configured. Please add VITE_API_KEY to your environment variables.", GeminiErrorType.UNKNOWN);
+        // Log the original initialization error for debugging, but throw a generic, user-friendly error.
+        console.error("Gemini AI client not initialized.", initError);
+        throw new GeminiError("Image generation service is currently unavailable. Please try again later.", GeminiErrorType.SERVER_ERROR);
     }
     
     const maxRetries = 3;

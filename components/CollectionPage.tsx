@@ -85,11 +85,8 @@ const CollectionPage: React.FC<CollectionPageProps> = ({ collectionItems, onStyl
                                         className="w-full h-full object-cover"
                                         loading="lazy"
                                     />
-                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <p className="font-permanent-marker text-white text-xl border-2 border-white px-4 py-2 rounded-sm">
-                                        Use this Style
-                                        </p>
-                                        <div className="absolute top-2 right-2">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col justify-between text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <div className="flex justify-end">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation(); // Prevent card's onClick
@@ -109,6 +106,9 @@ const CollectionPage: React.FC<CollectionPageProps> = ({ collectionItems, onStyl
                                                 )}
                                             </button>
                                         </div>
+                                        <p className="text-sm font-semibold line-clamp-3">
+                                            {image.prompt}
+                                        </p>
                                     </div>
                                 </Card3D>
                             ))}

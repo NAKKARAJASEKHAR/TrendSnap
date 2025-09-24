@@ -1,5 +1,4 @@
 // FIX: Removed reference to "vite/client" which was not found.
-// The necessary types for import.meta.env are provided globally in App.tsx.
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
