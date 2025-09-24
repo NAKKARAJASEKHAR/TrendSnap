@@ -5,39 +5,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { VideoItem } from '../App';
+import { convertGoogleDriveUrl, getYouTubeEmbedUrl } from '../lib/urlUtils';
 
-/**
- * Converts a standard YouTube URL (watch or youtu.be) into an embeddable URL.
- * @param url The original YouTube URL.
- * @returns The embeddable URL string or null if the URL is invalid.
- */
-const getYouTubeEmbedUrl = (url: string): string | null => {
-    let videoId: string | null = null;
-    try {
-        // Regular expression to capture video ID from various YouTube URL formats
-        const patterns = [
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/,
-        ];
-
-        for (const pattern of patterns) {
-            const match = url.match(pattern);
-            if (match && match[1]) {
-                videoId = match[1];
-                break;
-            }
-        }
-    } catch (e) {
-        console.error("Error parsing video URL:", url, e);
-        return null;
-    }
-
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-};
 
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
+    // Google Drive URL check
+    const driveEmbedUrl = convertGoogleDriveUrl(url, 'video');
+    if (driveEmbedUrl) {
+        return <iframe src={driveEmbedUrl} title="Video Player" frameBorder="0" allow="autoplay" allowFullScreen className="w-full h-full"></iframe>;
+    }
+
     // YouTube URL check
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
         const embedUrl = getYouTubeEmbedUrl(url);

@@ -6,6 +6,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoItem } from '../App';
+import { convertGoogleDriveUrl, getYouTubeEmbedUrl } from '../lib/urlUtils';
 
 // --- Type Definitions ---
 export interface CollectionItem {
@@ -22,49 +23,6 @@ type ToastNotification = {
 };
 
 // --- Helper Functions ---
-const convertGoogleDriveUrl = (url: string, type: 'image' | 'video'): string | null => {
-    const regex = /\/file\/d\/([a-zA-Z0-9_-]{25,})|id=([a-zA-Z0-9_-]{25,})|uc\?id=([a-zA-Z0-9_-]{25,})/;
-    const match = url.match(regex);
-
-    if (match && url.includes('drive.google.com')) {
-        const fileId = match[1] || match[2] || match[3];
-        if (fileId) {
-            if (type === 'image') {
-                return `https://drive.google.com/uc?export=download&id=${fileId}`;
-            }
-            if (type === 'video') {
-                return `https://drive.google.com/file/d/${fileId}/preview`;
-            }
-        }
-    }
-    return null;
-};
-
-const getYouTubeEmbedUrl = (url: string): string | null => {
-    let videoId: string | null = null;
-    try {
-        const patterns = [
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]+)/,
-            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/,
-        ];
-
-        for (const pattern of patterns) {
-            const match = url.match(pattern);
-            if (match && match[1]) {
-                videoId = match[1];
-                break;
-            }
-        }
-    } catch (e) {
-        console.error("Error parsing video URL:", url, e);
-        return null;
-    }
-
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-};
-
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
     const driveEmbedUrl = convertGoogleDriveUrl(url, 'video');
     if (driveEmbedUrl) {
